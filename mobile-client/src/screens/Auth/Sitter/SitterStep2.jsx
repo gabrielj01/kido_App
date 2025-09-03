@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, Button } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import colors from '../../../theme/color';
+import {colors} from '../../../theme/color';
 
 export default function SitterStep2() {
   const navigation = useNavigation();

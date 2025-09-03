@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Button, Pressable } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import colors from '../../../theme/color';
+import {colors} from '../../../theme/color';
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const SLOTS = ['08:00 - 12:00','12:00 - 16:00','16:00 - 20:00','20:00 - 00:00'];
