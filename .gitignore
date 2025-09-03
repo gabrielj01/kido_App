@@ -1,0 +1,29 @@
+# Node / RN
+node_modules/
+npm-debug.log*
+yarn*.log
+pnpm-debug.log*
+.DS_Store
+
+# Builds / caches
+dist/
+build/
+coverage/
+.expo/
+.expo-shared/
+.cache/
+.tmp/
+
+# Dossiers natifs RN (si tu ne veux pas les versionner)
+android/
+ios/
+
+# Environnements & secrets
+.env
+.env.*
+*.keystore
+*.jks
+
+# Divers
+*.log
+logs/
