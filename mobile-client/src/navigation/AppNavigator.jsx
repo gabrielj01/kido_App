@@ -23,7 +23,6 @@ import SitterStep2 from '../screens/Auth/Sitter/SitterStep2.jsx';
 import SitterStep3 from '../screens/Auth/Sitter/SitterStep3.jsx';
 import SitterStep4 from '../screens/Auth/Sitter/SitterStep4.jsx';
 
-
 // Roles (home)
 import HomeParent from '../screens/Parent/ParentHome.jsx';
 import HomeSitter from '../screens/Babysitter/SitterHome.jsx';
@@ -40,13 +39,15 @@ import BabysitterDetailsScreen from '../screens/Babysitter/BabysitterDetailsScre
 import BookingScreen from '../screens/Booking/BookingScreen.jsx';
 import MyBookingScreen from "../screens/Booking/MyBookingScreen.jsx";
 import SitterRequestsScreen from "../screens/Babysitter/SitterRequestsScreen.jsx";
-
+import BabysitterReviewsScreen from '../screens/Babysitter/BabysitterReviews.jsx';
+import PostReviewScreen from '../screens/Babysitter/PostReviewScreen.jsx';
+import BookingDeTails from '../screens/Booking/BookingDetails.jsx';
 
 const RootStack = createNativeStackNavigator();
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/** Sub-stack for Profile */
+/** Sub-stack for Profile (used by both roles) */
 function ProfileStack() {
   return (
     <Stack.Navigator>
@@ -71,7 +72,6 @@ function ParentTabs() {
     }
   }, []);
 
-  // Refresh badge whenever this tab tree gains focus
   useFocusEffect(React.useCallback(() => { loadPending(); }, [loadPending]));
   React.useEffect(() => on('bookings:changed', loadPending), [loadPending]);
 
@@ -85,14 +85,10 @@ function ParentTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName = 'ellipse';
           switch (route.name) {
-            case 'Home':
-              iconName = focused ? 'home' : 'home-outline'; break;
-            case 'Search':
-              iconName = focused ? 'search' : 'search-outline'; break;
-            case 'Bookings':
-              iconName = focused ? 'calendar' : 'calendar-outline'; break;
-            case 'Profile':
-              iconName = focused ? 'person' : 'person-outline'; break;
+            case 'Home': iconName = focused ? 'home' : 'home-outline'; break;
+            case 'Search': iconName = focused ? 'search' : 'search-outline'; break;
+            case 'Bookings': iconName = focused ? 'calendar' : 'calendar-outline'; break;
+            case 'Profile': iconName = focused ? 'person' : 'person-outline'; break;
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -114,11 +110,14 @@ function ParentStack() {
       <ParentStackNav.Screen name="ParentTabs" component={ParentTabs} options={{ headerShown: false }} />
       <ParentStackNav.Screen name="BabysitterDetails" component={BabysitterDetailsScreen} options={{ title: 'Babysitter' }} />
       <ParentStackNav.Screen name="Booking" component={BookingScreen} options={{ title: 'Booking' }} />
+      <ParentStackNav.Screen name="BookingDetails" component={BookingDeTails} options={{ title: 'Booking Details' }} />
+      <ParentStackNav.Screen name="BabysitterReviews" component={BabysitterReviewsScreen} options={{ title: 'Reviews', headerShown: false }}/>
+      <ParentStackNav.Screen name="PostReview" component={PostReviewScreen} options={{ title: 'Write a review' }}/>
     </ParentStackNav.Navigator>
   );
 }
 
-/** Sitter tabs (no details/booking flow here) */
+/** Bottom tabs for Sitter role */
 function SitterTabs() {
   const [pendingCount, setPendingCount] = React.useState(0);
 
@@ -135,6 +134,7 @@ function SitterTabs() {
 
   useFocusEffect(React.useCallback(() => { loadPending(); }, [loadPending]));
   React.useEffect(() => on('bookings:changed', loadPending), [loadPending]);
+
   const badgeValue = pendingCount > 9 ? '9+' : (pendingCount || undefined);
   return (
     <Tab.Navigator
@@ -145,14 +145,10 @@ function SitterTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName = 'ellipse';
           switch (route.name) {
-            case 'Home':
-              iconName = focused ? 'home' : 'home-outline'; break;
-            case 'Search':
-              iconName = focused ? 'search' : 'search-outline'; break;
-            case 'Requests':
-              iconName = focused ? 'calendar' : 'calendar-outline'; break;
-            case 'Profile':
-              iconName = focused ? 'person' : 'person-outline'; break;
+            case 'Home': iconName = focused ? 'home' : 'home-outline'; break;
+            case 'Search': iconName = focused ? 'search' : 'search-outline'; break;
+            case 'Requests': iconName = focused ? 'calendar' : 'calendar-outline'; break;
+            case 'Profile': iconName = focused ? 'person' : 'person-outline'; break;
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -163,6 +159,19 @@ function SitterTabs() {
       <Tab.Screen name="Requests" component={SitterRequestsScreen} options={{ tabBarBadge: badgeValue }}/>
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
+  );
+}
+
+/** Sitter root: tabs + flow screens pushed over the tabs (so SitterHome can navigate to Reviews) */
+const SitterStackNav = createNativeStackNavigator();
+function SitterStack() {
+  return (
+    <SitterStackNav.Navigator>
+      <SitterStackNav.Screen name="SitterTabs" component={SitterTabs} options={{ headerShown: false }} />
+      <SitterStackNav.Screen name="BookingDetails" component={BookingDeTails} options={{ title: 'Booking Details' }} />
+      <SitterStackNav.Screen name="BabysitterReviews" component={BabysitterReviewsScreen} options={{ title: 'Reviews', headerShown: false }}/>
+      <SitterStackNav.Screen name="PostReview" component={PostReviewScreen} options={{ title: 'Write a review' }}/>
+    </SitterStackNav.Navigator>
   );
 }
 
@@ -191,7 +200,7 @@ export default function AppNavigator() {
         ) : user.role === 'parent' ? (
           <RootStack.Screen name="ParentRoot" component={ParentStack} />
         ) : (
-          <RootStack.Screen name="SitterRoot" component={SitterTabs} />
+          <RootStack.Screen name="SitterRoot" component={SitterStack} />
         )}
       </RootStack.Navigator>
     </NavigationContainer>

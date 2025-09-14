@@ -22,7 +22,6 @@ function validateTimes(start, end) {
 }
 
 
-// POST /api/bookings
 export async function createBooking(req, res) {
   try {
     // Tolerant auth extraction (selon ton middleware)
@@ -278,3 +277,99 @@ export async function hideBooking(req, res) {
     return res.status(500).json({ error: "Failed to hide booking", details: err.message });
   }
 }
+
+
+// Get upcoming bookings for the current user (parent or babysitter)
+export async function getUpcoming(req, res) {
+  try {
+    const userId =
+      req.user?.id || req.user?._id || req.userId || req.auth?.id || null;
+    const role = String(req.user?.role || "").toLowerCase(); // "parent" | "babysitter"
+
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    // Default: only accepted bookings in the future
+    // You can pass ?status=accepted,pending to include multiple
+    const statusQ = (req.query.status || "accepted")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "5", 10), 1), 50);
+
+    // We store start as ISO string -> lexicographic compare works if ISO RFC3339
+    const nowISO = new Date().toISOString();
+
+    // Role-based filter + hidden flags
+    let filter;
+    if (role === "babysitter" || role === "sitter") {
+      filter = {
+        sitterId: userId,
+        hiddenForSitter: { $ne: true },
+      };
+    } else {
+      filter = {
+        parentId: userId,
+        hiddenForParent: { $ne: true },
+      };
+    }
+
+    Object.assign(filter, {
+      status: { $in: statusQ },
+      startISO: { $gte: nowISO },
+    });
+
+    const bookings = await Booking.find(filter)
+      .sort({ startISO: 1 })
+      .limit(limit)
+      // populate both sides for names/avatars in UI
+      .populate("sitterId", "name photoUrl hourlyRate role")
+      .populate("parentId", "name photoUrl role")
+      .lean();
+
+    return res.json(bookings);
+  } catch (err) {
+    console.error("getUpcoming error:", err);
+    return res.status(500).json({ message: "Failed to load upcoming bookings", details: err.message });
+  }
+}
+
+export async function completeBooking(req, res) {
+  try {
+    const requesterId = req.user?.id || req.user?._id || req.userId || null;
+    if (!requesterId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { id } = req.params;
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: "Booking not found." });
+
+    // Only sitter can complete
+    if (String(booking.sitterId) !== String(requesterId)) {
+      return res.status(403).json({ error: "Only the babysitter can complete this booking." });
+    }
+    if (booking.status !== "accepted") {
+      return res.status(400).json({ error: `Only 'accepted' bookings can be completed.` });
+    }
+
+    const end = new Date(booking.endISO || booking.endTime || 0);
+    if (!(end instanceof Date) || Number.isNaN(end.getTime())) {
+      return res.status(400).json({ error: "Invalid end time on booking." });
+    }
+    if (end > new Date()) {
+      return res.status(400).json({ error: "You can mark as completed only after the end time." });
+    }
+
+    booking.status = "completed";
+    await booking.save();
+
+    const populated = await Booking.findById(id)
+      .populate("sitterId", "name hourlyRate")
+      .populate("parentId", "name email");
+
+    return res.json(populated);
+  } catch (err) {
+    console.error("completeBooking error:", err);
+    return res.status(500).json({ error: "Failed to complete booking", details: err.message });
+  }
+}
+

@@ -33,3 +33,8 @@ export async function updateProfile(payload) {
   return api.put("/api/users/me", payload);
 }
 
+export async function getMyProfile() {
+  const { data } = await api.get("/api/users/me");
+  return data;
+}
+

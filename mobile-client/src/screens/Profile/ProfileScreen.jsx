@@ -1,5 +1,5 @@
 // mobile-client/src/screens/Profile/ProfileScreen.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -8,20 +8,20 @@ import {
   Pressable,
   Alert,
   StyleSheet,
+  RefreshControl,
+  I18nManager
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { colors } from "../../theme/color";
 import Chip from "../../components/Chip";
 import RatingStars from "../../components/RatingStars";
-import * as AuthHook from "../../hooks/useAuth";
-
-const useAuth = AuthHook.useAuth || AuthHook.default; 
+import { useAuth } from "../../hooks/useAuth";
+import api from "../../api/client"; // axios instance with token
 
 function getInitials(name = "") {
   const parts = String(name).trim().split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() || "").join("");
 }
-
 
 function v(value, fallback = "—") {
   if (value === 0) return "0";
@@ -30,11 +30,43 @@ function v(value, fallback = "—") {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { user, signOut } = useAuth(); // expects { user: {...}, signOut: fn }
+  const { user, setUser, logout } = useAuth();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch user profile from API and hydrate the global auth state
+  const fetchProfile = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/users/me");
+      setUser?.(data);
+    } catch (err) {
+      console.log("Profile fetch error:", err?.response?.data || err.message);
+    }
+  }, [setUser]);
+
+  // Re-fetch every time the screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        if (!active) return;
+        await fetchProfile();
+      })();
+      return () => {
+        active = false;
+      };
+    }, [fetchProfile])
+  );
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchProfile().finally(() => setRefreshing(false));
+  }, [fetchProfile]);
 
   // Defensive fields (avoid crashes if backend shape evolves)
-  const role = user?.role || user?.type || "parent"; // "parent" | "sitter"
-  const isSitter = role === "sitter";
+  const role = user?.role || user?.type || "parent"; // "parent" | "sitter" | "babysitter"
+  const isSitter = role === "sitter" || role === "babysitter";
   const name = user?.name || user?.fullName || "Your name";
   const email = user?.email;
   const phone = user?.phone;
@@ -93,7 +125,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: () => {
           try {
-            signOut?.();
+            logout?.();
           } catch (e) {
             Alert.alert("Error", "Failed to log out. Please try again.");
           }
@@ -103,7 +135,12 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.container}>
         {/* Header Card */}
         <View style={styles.card}>
@@ -225,11 +262,32 @@ function InfoRow({ label, value }) {
 
 function ListRow({ label, items, emptyText = "—" }) {
   const has = Array.isArray(items) && items.length > 0;
+  const isRTL = I18nManager.isRTL;
   return (
-    <View style={[rowStyles.row, { alignItems: "flex-start" }]}>
+    <View
+       style={[
+         rowStyles.row,
+         {
+           alignItems: "flex-start",
+           justifyContent: "flex-start",
+           flexDirection: isRTL ? "row-reverse" : "row",
+         },
+       ]}
+     >
       <Text style={rowStyles.label}>{label}</Text>
       {has ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, flex: 1 }}>
+        <View
+           style={{
+             // Keep chips visually starting from the LEFT
+             flex: 1,
+             flexDirection: isRTL ? "row-reverse" : "row",
+             flexWrap: "wrap",
+             justifyContent: "flex-start",
+             alignItems: "flex-start",
+             alignContent: "flex-start",
+             gap: 8,
+           }}
+         >
           {items.map((it, idx) => (
             <View
               key={`${String(it)}-${idx}`}
@@ -240,6 +298,7 @@ function ListRow({ label, items, emptyText = "—" }) {
                 borderRadius: 16,
                 paddingHorizontal: 10,
                 paddingVertical: 6,
+                alignSelf: "flex-start",
               }}
             >
               <Text style={{ color: colors.textDark }}>{String(it)}</Text>

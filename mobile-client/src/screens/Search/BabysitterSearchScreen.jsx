@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors } from "../../theme/color";
+import Screen from "../../components/Screen";
 
 // Robust hook import
 import * as AuthHook from "../../hooks/useAuth";
@@ -271,7 +273,9 @@ export default function BabysitterSearchScreen() {
       });
 
     return (
-      <Pressable onPress={goDetails} style={styles.card} android_ripple={{ color: "#eee" }}>
+      <Pressable onPress={goDetails} style={[styles.card, styles.resultCard]} android_ripple={{ color: "#eee" }}>
+        {/* Left color edge */}
+        <View style={styles.colorEdge} />
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image
             source={avatar ? { uri: avatar } : require("../../../assets/icon.png")}
@@ -296,7 +300,12 @@ export default function BabysitterSearchScreen() {
             </View>
           </View>
           <View style={{ alignItems: "flex-end", gap: 6 }}>
-            {Number.isFinite(price) ? <Text style={styles.price}>{price} ₪/h</Text> : null}
+            {Number.isFinite(price) ? (
+              <View style={styles.pricePill}>
+                <Ionicons name="cash-outline" size={14} color="#fff" />
+                <Text style={styles.priceTxt}>{price} ₪/h</Text>
+              </View>
+            ) : null}
             <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
           </View>
         </View>
@@ -331,137 +340,163 @@ export default function BabysitterSearchScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* Filter card */}
-      <View style={[styles.card, { margin: 16, marginBottom: 8 }]}>
-        <Text style={styles.cardTitle}>Find a babysitter</Text>
+    <Screen edges={['top']}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        {/* Colorful hero banner */}
+        <LinearGradient
+          colors={[colors.primary, "#FFB199"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <View style={styles.heroRow}>
+            <View style={styles.heroIcon}>
+              <Ionicons name="sparkles" size={18} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroTitle}>Find a babysitter</Text>
+              <Text style={styles.heroSub}>Nearby · Verified · Reviewed</Text>
+            </View>
+            <Pressable onPress={resetFilters} style={styles.heroReset}>
+              <Ionicons name="refresh" size={16} color={colors.primary} />
+              <Text style={styles.heroResetTxt}>Reset</Text>
+            </Pressable>
+          </View>
+        </LinearGradient>
 
-        <TextInput
-          value={q}
-          onChangeText={setQ}
-          placeholder="Search by name or city"
-          placeholderTextColor={colors.textLight}
-          style={styles.input}
-          autoCapitalize="none"
-          returnKeyType="search"
-          onSubmitEditing={() => load()}
-        />
+        {/* Filter card */}
+        <View style={[styles.card, styles.filterCard]}>
+          <Text style={styles.cardTitle}>Filters</Text>
 
-        {/* Budget steppers */}
-        <View style={styles.gridRow}>
-          <NumberField
-            label="Min price (₪/h)"
-            value={minPrice}
-            onMinus={() => dec(setMinPrice, minPrice, 5, 0, 150)}
-            onPlus={() => inc(setMinPrice, minPrice, 5, 0, 150)}
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            placeholder="Search by name or city"
+            placeholderTextColor={colors.textLight}
+            style={styles.input}
+            autoCapitalize="none"
+            returnKeyType="search"
+            onSubmitEditing={() => load()}
           />
-          <NumberField
-            label="Max price (₪/h)"
-            value={maxPrice}
-            onMinus={() => dec(setMaxPrice, maxPrice, 5, 0, 150)}
-            onPlus={() => inc(setMaxPrice, maxPrice, 5, 0, 150)}
-          />
-        </View>
 
-        {/* Rating + Language */}
-        <View style={styles.gridRow}>
-          <NumberField
-            label="Min rating"
-            value={minRating}
-            format={(v) => v.toFixed(1)}
-            onMinus={() => setMinRating(Math.max(0, Number((minRating - 0.5).toFixed(1))))}
-            onPlus={() => setMinRating(Math.min(5, Number((minRating + 0.5).toFixed(1))))}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.smallLabel}>Language contains</Text>
-            <TextInput
-              value={lang}
-              onChangeText={setLang}
-              placeholder="e.g., English"
-              placeholderTextColor={colors.textLight}
-              style={styles.smallInput}
-              autoCapitalize="none"
+          {/* Budget steppers */}
+          <View style={styles.gridRow}>
+            <NumberField
+              label="Min price (₪/h)"
+              value={minPrice}
+              onMinus={() => dec(setMinPrice, minPrice, 5, 0, 150)}
+              onPlus={() => inc(setMinPrice, minPrice, 5, 0, 150)}
             />
+            <NumberField
+              label="Max price (₪/h)"
+              value={maxPrice}
+              onMinus={() => dec(setMaxPrice, maxPrice, 5, 0, 150)}
+              onPlus={() => inc(setMaxPrice, maxPrice, 5, 0, 150)}
+            />
+          </View>
+
+          {/* Rating + Language */}
+          <View style={styles.gridRow}>
+            <NumberField
+              label="Min rating"
+              value={minRating}
+              format={(v) => v.toFixed(1)}
+              onMinus={() => setMinRating(Math.max(0, Number((minRating - 0.5).toFixed(1))))}
+              onPlus={() => setMinRating(Math.min(5, Number((minRating + 0.5).toFixed(1))))}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.smallLabel}>Language contains</Text>
+              <TextInput
+                value={lang}
+                onChangeText={setLang}
+                placeholder="e.g., English"
+                placeholderTextColor={colors.textLight}
+                style={styles.smallInput}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* Near me + distance stepper */}
+          <View style={styles.gridRow}>
+            <Pressable
+              onPress={() => {
+                if (!Number.isFinite(myLat) || !Number.isFinite(myLng)) {
+                  Alert.alert("Location missing", "Add your coordinates in Profile to use 'Near me'.");
+                  return;
+                }
+                setNearMe((v) => !v);
+              }}
+              style={nearMe ? styles.toggleOn : styles.toggleOff}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons
+                  name={nearMe ? "location" : "location-outline"}
+                  size={16}
+                  color={nearMe ? "white" : colors.textDark}
+                />
+                <Text style={nearMe ? styles.toggleOnTxt : styles.toggleOffTxt}>
+                  {nearMe ? "Near me: ON" : "Near me: OFF"}
+                </Text>
+              </View>
+            </Pressable>
+
+            <NumberField
+              label="Max distance (km)"
+              value={maxDist}
+              onMinus={() => dec(setMaxDist, maxDist, 1, 1, 50)}
+              onPlus={() => inc(setMaxDist, maxDist, 1, 1, 50)}
+            />
+          </View>
+
+          <View style={styles.filterActions}>
+            <Pressable onPress={toggleSort} style={styles.sortBtn}>
+              <Ionicons name="swap-vertical" size={16} color={colors.textDark} />
+              <Text style={styles.sortBtnTxt}>Sort: {sortText[sortBy]}</Text>
+            </Pressable>
+
+            <Pressable onPress={resetFilters} style={styles.resetBtn}>
+              <Ionicons name="refresh" size={16} color={colors.primary} />
+              <Text style={styles.resetBtnTxt}>Reset filters</Text>
+            </Pressable>
           </View>
         </View>
 
-        {/* Near me + distance stepper */}
-        <View style={styles.gridRow}>
-          <Pressable
-            onPress={() => {
-              if (!Number.isFinite(myLat) || !Number.isFinite(myLng)) {
-                Alert.alert("Location missing", "Add your coordinates in Profile to use 'Near me'.");
-                return;
-              }
-              setNearMe((v) => !v);
-            }}
-            style={nearMe ? styles.toggleOn : styles.toggleOff}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons
-                name={nearMe ? "location" : "location-outline"}
-                size={16}
-                color={nearMe ? "white" : colors.textDark}
-              />
-              <Text style={nearMe ? styles.toggleOnTxt : styles.toggleOffTxt}>
-                {nearMe ? "Near me: ON" : "Near me: OFF"}
-              </Text>
-            </View>
-          </Pressable>
-
-          <NumberField
-            label="Max distance (km)"
-            value={maxDist}
-            onMinus={() => dec(setMaxDist, maxDist, 1, 1, 50)}
-            onPlus={() => inc(setMaxDist, maxDist, 1, 1, 50)}
+        {/* Results */}
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.muted}>Loading babysitters…</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.center}>
+            <Text style={styles.error}>{error}</Text>
+            <Pressable style={styles.secondaryBtn} onPress={() => load()}>
+              <Text style={styles.secondaryBtnTxt}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : list.length === 0 ? (
+          <View style={styles.center}>
+            <Text style={styles.muted}>No babysitters match your filters.</Text>
+            <Pressable style={[styles.secondaryBtn, { marginTop: 10 }]} onPress={resetFilters}>
+              <Text style={styles.secondaryBtnTxt}>Clear filters</Text>
+            </Pressable>
+            <Text style={[styles.muted, { marginTop: 8 }]}>
+              Source returned {Array.isArray(raw) ? raw.length : 0} items.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={list}
+            keyExtractor={(item, idx) => String(item?._id || item?.id || idx)}
+            renderItem={renderItem}
+            contentContainerStyle={{ padding: 16, paddingTop: 8 }}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
           />
-        </View>
-
-        <View style={styles.filterActions}>
-          <Pressable onPress={toggleSort} style={styles.sortBtn}>
-            <Text style={styles.sortBtnTxt}>Sort: {sortText[sortBy]}</Text>
-          </Pressable>
-
-          <Pressable onPress={resetFilters} style={styles.resetBtn}>
-            <Text style={styles.resetBtnTxt}>Reset filters</Text>
-          </Pressable>
-        </View>
+        )}
       </View>
-
-      {/* Results */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.muted}>Loading babysitters…</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.error}>{error}</Text>
-          <Pressable style={styles.secondaryBtn} onPress={() => load()}>
-            <Text style={styles.secondaryBtnTxt}>Retry</Text>
-          </Pressable>
-        </View>
-      ) : list.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>No babysitters match your filters.</Text>
-          <Pressable style={[styles.secondaryBtn, { marginTop: 10 }]} onPress={resetFilters}>
-            <Text style={styles.secondaryBtnTxt}>Clear filters</Text>
-          </Pressable>
-          <Text style={[styles.muted, { marginTop: 8 }]}>
-            Source returned {Array.isArray(raw) ? raw.length : 0} items.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={list}
-          keyExtractor={(item, idx) => String(item?._id || item?.id || idx)}
-          renderItem={renderItem}
-          contentContainerStyle={{ padding: 16, paddingTop: 8 }}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
-      )}
-    </View>
+    </Screen>
   );
 }
 
@@ -487,6 +522,30 @@ function NumberField({ label, value, onMinus, onPlus, format }) {
 /* ------------------------------ styles ------------------------------ */
 
 const styles = StyleSheet.create({
+  /* Hero */
+  hero: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 10,
+    borderRadius: 16,
+    padding: 14,
+  },
+  heroRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  heroIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignItems: "center", justifyContent: "center",
+  },
+  heroTitle: { color: "white", fontWeight: "800", fontSize: 18 },
+  heroSub: { color: "white", opacity: 0.85, marginTop: 2 },
+  heroReset: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "white", paddingHorizontal: 10, paddingVertical: 8,
+    borderRadius: 12,
+  },
+  heroResetTxt: { color: colors.primary, fontWeight: "800" },
+
+  /* Cards */
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -495,12 +554,34 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 14,
   },
-  cardTitle: { fontWeight: "700", color: colors.textDark, marginBottom: 10 },
+  filterCard: {
+    marginHorizontal: 16,
+    // subtle tint around filters
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  resultCard: {
+    position: "relative",
+    overflow: "hidden",
+  },
+  colorEdge: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    backgroundColor: colors.primary,
+  },
+
+  cardTitle: { fontWeight: "800", color: colors.textDark, marginBottom: 10 },
 
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bg,
+    backgroundColor: "#FFF8F6",
     color: colors.textDark,
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -509,7 +590,7 @@ const styles = StyleSheet.create({
   smallInput: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bg,
+    backgroundColor: "#FFF8F6",
     color: colors.textDark,
     borderRadius: 10,
     paddingHorizontal: 10,
@@ -526,7 +607,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.card,
     borderRadius: 10,
     paddingHorizontal: 8,
     height: 40,
@@ -537,7 +618,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: "#FFF1ED",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -580,18 +661,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  sortBtnTxt: { color: colors.textDark, fontWeight: "700" },
+  sortBtnTxt: { color: colors.textDark, fontWeight: "800" },
 
   resetBtn: {
-    backgroundColor: colors.card,
+    backgroundColor: "#FFF1ED",
     borderWidth: 1,
     borderColor: colors.border,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  resetBtnTxt: { color: colors.textDark, fontWeight: "700" },
+  resetBtnTxt: { color: colors.primary, fontWeight: "800" },
 
   avatar: {
     width: 56,
@@ -603,7 +690,17 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.textDark, fontWeight: "800", fontSize: 16 },
   muted: { color: colors.textLight, marginTop: 6 },
-  price: { color: colors.textDark, fontWeight: "800" },
+
+  pricePill: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  priceTxt: { color: "#fff", fontWeight: "800", fontSize: 12 },
 
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   error: { color: "#c00", marginBottom: 8, textAlign: "center" },

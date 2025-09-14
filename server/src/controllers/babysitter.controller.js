@@ -1,15 +1,16 @@
-// server/src/controllers/babysitter.controller.js
+// All comments in English as requested.
 import User from "../models/User.js";
+import Review from "../models/Review.js";
+import mongoose from "mongoose";
 
-/** Helpers */
+/** Helpers (kept from your original file) */
 const toNum = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
 const escapeRegex = (s) =>
-  String(s ?? "")
-    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  String(s ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Haversine via aggregation for distanceKm
 const distKmExpr = (lat, lng) => ({
@@ -73,40 +74,36 @@ export async function listBabysitters(req, res) {
     const lng = toNum(req.query.lng ?? req.query.longitude);
     const maxDist = toNum(req.query.maxDist ?? req.query.maxKm);
 
-    // ✅ Par défaut: on force role = "babysitter"
+    // ✅ By default: restrict role to babysitters
     const strictRole = !/^(0|false|no)$/i.test(String(req.query.strictRole ?? "true"));
 
     const sortRaw = String(req.query.sort || "relevance").toLowerCase();
     const page = Math.max(1, parseInt(req.query.page || "1", 10));
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit || "50", 10)));
 
-    // ---- Build base $match (tolerant on filters, strict on role by default) ----
+    // ---- Build base $match ----
     const match = {};
 
     if (strictRole) {
-      // ton schéma utilise "babysitter" (pas "sitter")
       match.role = { $in: ["babysitter", "BABYSITTER"] };
     }
 
-    // Text search (name/city/address string or nested)
     if (q && String(q).trim()) {
       const rx = new RegExp(escapeRegex(q.trim()), "i");
       match.$or = [
         { name: rx },
         { fullName: rx },
         { city: rx },
-        { address: rx },         // address as string (legacy)
-        { "address.city": rx },  // address nested
+        { address: rx },
+        { "address.city": rx },
       ];
     }
 
-    // Language contains
     if (language && String(language).trim()) {
       const rx = new RegExp(escapeRegex(language.trim()), "i");
       match.languages = { $elemMatch: { $regex: rx } };
     }
 
-    // Price range (keep docs without price)
     if (minPrice !== null || maxPrice !== null) {
       const or = [];
       if (minPrice !== null && maxPrice !== null) {
@@ -120,23 +117,20 @@ export async function listBabysitters(req, res) {
       match.$and = (match.$and || []).concat([{ $or: or }]);
     }
 
-    // Min rating (only if fields exist)
     if (minRating !== null) {
       match.$and = (match.$and || []).concat([
         {
           $or: [
             { ratingAvg: { $gte: minRating } },
             { rating: { $gte: minRating } },
-            { ratingAvg: { $exists: false } }, // keep profiles with no rating
+            { ratingAvg: { $exists: false } },
           ],
         },
       ]);
     }
 
-    // ---- Aggregation pipeline ----
     const pipeline = [{ $match: match }, { $project: { password: 0, __v: 0 } }];
 
-    // Distance compute
     const hasCoords = lat !== null && lng !== null;
     if (hasCoords) {
       pipeline.push({ $addFields: { distanceKm: distKmExpr(lat, lng) } });
@@ -153,7 +147,6 @@ export async function listBabysitters(req, res) {
       }
     }
 
-    // Lightweight relevance if q present
     if (q && String(q).trim()) {
       const pattern = escapeRegex(String(q).trim());
       pipeline.push({
@@ -194,7 +187,6 @@ export async function listBabysitters(req, res) {
       });
     }
 
-    // Sorting
     let sortStage = { createdAt: -1 };
     switch (sortRaw) {
       case "distance":
@@ -223,7 +215,6 @@ export async function listBabysitters(req, res) {
     }
     pipeline.push({ $sort: sortStage });
 
-    // Pagination with total count
     pipeline.push({
       $facet: {
         data: [{ $skip: (page - 1) * limit }, { $limit: limit }],
@@ -247,9 +238,68 @@ export async function listBabysitters(req, res) {
     });
   } catch (err) {
     console.error("listBabysitters error:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch babysitters", details: err.message });
+    res.status(500).json({ error: "Failed to fetch babysitters", details: err.message });
+  }
+}
+
+/* ------------------------- REVIEWS: GET & POST ------------------------- */
+
+/** Recompute sitter's ratingAvg & ratingCount from Review collection */
+async function recomputeSitterStats(sitterId) {
+  const agg = await Review.aggregate([
+    { $match: { revieweeId: new mongoose.Types.ObjectId(sitterId) } },
+    { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
+  ]);
+  const avg = agg.length ? Math.round(agg[0].avg * 10) / 10 : 0;
+  const count = agg.length ? agg[0].count : 0;
+  await User.findByIdAndUpdate(sitterId, { ratingAvg: avg, ratingCount: count });
+}
+
+/** GET /api/babysitters/:id/reviews */
+export async function getSitterReviews(req, res) {
+  const { id } = req.params;
+  const page = Math.max(1, parseInt(req.query.page || "1", 10));
+  const limit = Math.max(1, Math.min(50, parseInt(req.query.limit || "20", 10)));
+  const skip = (page - 1) * limit;
+
+  const sitterId = new mongoose.Types.ObjectId(id);
+  const [items, total] = await Promise.all([
+    Review.find({ revieweeId: sitterId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Review.countDocuments({ revieweeId: sitterId }),
+  ]);
+
+  return res.json({ data: { items, meta: { page, limit, total } } });
+}
+
+/** POST /api/babysitters/:id/reviews */
+export async function addSitterReview(req, res) {
+  const { id } = req.params;
+  const { rating, comment, bookingId, reviewerId, authorName } = req.body;
+
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: "Rating must be between 1 and 5." });
   }
 
+  // Ensure sitter exists and is a babysitter
+  const sitter = await User.findById(id).lean();
+  if (!sitter || String(sitter.role).toLowerCase() !== "babysitter") {
+    return res.status(404).json({ error: "Babysitter not found." });
+  }
+
+  // Create review respecting your schema fields
+  const doc = await Review.create({
+    bookingId: bookingId || undefined,        // unique (one review per booking)
+    reviewerId: reviewerId || undefined,      // parent user id (optional if anonymous)
+    revieweeId: id,                            // the babysitter user id
+    rating,
+    comment: (comment || "").trim(),
+    authorName: (authorName || "Parent").trim(), // optional enhancement stored in schema (see model)
+  });
+
+  await recomputeSitterStats(id);
+  return res.status(201).json({ data: doc });
 }

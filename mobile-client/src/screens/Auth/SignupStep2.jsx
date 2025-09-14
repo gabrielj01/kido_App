@@ -1,5 +1,4 @@
-// screens/Auth/SignupStep2.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -28,6 +27,7 @@ const importedColors = importedNS?.colors || importedDefault || importedNS?.defa
 
 export default function SignupStep2({ navigation, route }) {
   // --- Step1 base data (kept exactly like your previous flow)
+  const placesRef = useRef(null);
   const { name, email, password, role = 'parent' } = route?.params || {};
 
   // --- Initial values from route if user went back/forward
@@ -140,11 +140,13 @@ export default function SignupStep2({ navigation, route }) {
 
               {hasPlacesKey ? (
                 <GooglePlacesAutocomplete
+                  ref={placesRef}
                   placeholder="Start typing your address"
                   fetchDetails
                   minLength={2}
                   debounce={250}
                   enablePoweredByContainer={false}
+                  keyboardShouldPersistTaps='always'
 
                   // ✅ Defensive defaults to avoid ".filter of undefined" inside the lib
                   predefinedPlaces={[]}
@@ -160,6 +162,7 @@ export default function SignupStep2({ navigation, route }) {
                     setAddress(addr);
                     setLatitude(lat);
                     setLongitude(lng);
+                    placesRef.current?.setAddressText?.(addr);
                   }}
                   onFail={(error) => {
                     console.warn('Places onFail:', error);
@@ -171,8 +174,8 @@ export default function SignupStep2({ navigation, route }) {
                     components: 'country:il', // Israel-first results
                   }}
                   styles={{
-                    container: { flex: 0 },
-                    textInputContainer: { padding: 0, margin: 0 },
+                    container: { flex: 0, zIndex: 10 },
+                    textInputContainer: { padding: 0, margin: 0, zIndex: 11 },
                     textInput: {
                       height: 48,
                       paddingHorizontal: 14,
@@ -191,6 +194,8 @@ export default function SignupStep2({ navigation, route }) {
                       borderRadius: 12,
                       marginTop: 6,
                       overflow: 'hidden',
+                      zIndex: 20,
+                      elevation: 6,
                     },
                     separator: { height: StyleSheet.hairlineWidth, backgroundColor: THEME.border },
                     description: { color: THEME.text },

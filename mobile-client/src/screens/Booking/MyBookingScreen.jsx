@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Booking/MyBookingScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -16,6 +15,7 @@ import Swipeable from "react-native-gesture-handler/Swipeable";
 import { Ionicons } from "@expo/vector-icons";
 import { hideBookingById } from "../../api/bookingApi";
 import { emit } from "../../contexts/EventBus";
+import Screen from "../../components/Screen";
 
 const STATUS = ["all", "pending", "accepted", "declined", "cancelled", "completed"];
 
@@ -262,6 +262,7 @@ export default function MyBookingScreen() {
   );
 
   return (
+    <Screen edges={['top']}>
     <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
       <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textDark }}>My Bookings</Text>
       <Text style={{ marginTop: 6, color: colors.textLight }}>
@@ -319,5 +320,6 @@ export default function MyBookingScreen() {
         onCancel={() => setConfirmOpen(false)}
       />
     </View>
+    </Screen>
   );
 }

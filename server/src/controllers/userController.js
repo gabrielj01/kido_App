@@ -19,18 +19,19 @@ const deleteFileIfExists = (absolutePath) => {
   }
 };
 
-/**
- * Normalize/clean incoming patch payloads before Mongo updates.
- * - Avoids CastError when address is an object while schema expects a string.
- * - Soft-casts numeric inputs coming as strings.
- * - Coerces CSV-like strings to arrays for certain fields.
- */
+function toAddressObject(addr) {
+  if (!addr) return {};
+  if (typeof addr === "object" && !Array.isArray(addr)) return addr;
+  if (typeof addr === "string") {
+    const [street, city] = addr.split(",").map(s => String(s || "").trim());
+    return { street: street || "", city: city || "" };
+  }
+  return {};
+}
+
 function normalizePatch(patch) {
   const out = { ...patch };
 
-  // ---- Address: if an object came from mobile { city, street, radiusKm } ----
-  // If your schema defines `address` as String, keep it a string to avoid CastError.
-  // We serialize to "street, city". If both are empty, keep empty string.
   if (out.address && typeof out.address === "object" && !Array.isArray(out.address)) {
     const { city = "", street = "", radiusKm } = out.address || {};
     const pieces = [street?.trim(), city?.trim()].filter(Boolean);
@@ -72,7 +73,6 @@ function normalizePatch(patch) {
   return out;
 }
 
-// ---------- Public reads / self profile ----------
 
 export async function getUserById(req, res) {
   try {
@@ -109,7 +109,7 @@ export async function listUsers(req, res) {
 
 export const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password -__v");
+      const user = await User.findById(req.user.id).select("-password -__v");
     if (!user) return res.status(404).json({ message: "User not found" });
     return res.json(user);
   } catch (err) {
@@ -119,7 +119,6 @@ export const getMe = async (req, res) => {
   }
 };
 
-// ---------- Updates ----------
 
 export async function updateUserById(req, res) {
   try {
@@ -136,11 +135,11 @@ export async function updateUserById(req, res) {
     const allowed = [
       "name",
       "username",
-      "address",         // may be object or string
+      "address",
       "latitude",
       "longitude",
       "hourlyRate",
-      "experienceYears", // prefer explicit years field
+      "experienceYears",
       "workRadiusKm",
       "certifications",
       "age",
@@ -148,8 +147,8 @@ export async function updateUserById(req, res) {
       "bio",
       "languages",
       "dietary",
-      "preferences",     // if your schema supports it
-      "role"             // optional: if admins promote/demote roles
+      "preferences",
+      "role"
     ];
 
     const rawPatch = {};
@@ -158,7 +157,7 @@ export async function updateUserById(req, res) {
     }
     const patch = normalizePatch(rawPatch);
 
-    // Simple business rule example
+
     if (patch.hourlyRate != null && Number(patch.hourlyRate) < 0) {
       return res.status(400).json({ error: "hourlyRate cannot be negative" });
     }
@@ -186,7 +185,7 @@ export const updateMe = async (req, res) => {
     // Whitelist for self update
     const allowed = [
       "name",
-      "address",        // may be object or string
+      "address",
       "latitude",
       "longitude",
       "hourlyRate",
@@ -222,7 +221,7 @@ export const updateMe = async (req, res) => {
   }
 };
 
-// ---------- Photo upload / delete ----------
+// ---------- Photo upload / delete ------------
 
 export async function uploadUserPhoto(req, res) {
   try {

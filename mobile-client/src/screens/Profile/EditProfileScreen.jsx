@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Profile/EditProfileScreen.jsx
 import React, { useState } from "react";
 import {
   View,
@@ -33,6 +32,11 @@ const fromCsv = (str) =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+
+const toNum = (val) => {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : undefined;
+};
 
 function inferMime(uri = "") {
   const lower = uri.toLowerCase();
@@ -104,7 +108,7 @@ export default function EditProfileScreen() {
   const api = ApiClient.default || ApiClient.api || ApiClient.client || null;
 
   const role = u0?.role || u0?.type || "parent";
-  const isSitter = role === "sitter";
+  const isSitter = role === "sitter" || role === "babysitter";
   const address = u0?.address || {};
 
   const [name, setName] = useState(v(u0?.name || u0?.fullName, ""));
@@ -216,11 +220,11 @@ export default function EditProfileScreen() {
     }
 
     if (isSitter) {
-      base.role = "sitter";
-      base.workRadiusKm = Number(workRadiusKm) || undefined;
-      base.hourlyRate = Number(hourlyRate) || undefined;
-      base.experienceYears = Number(experienceYears) || undefined;
-      base.certifications = fromCsv(certificationsCsv);
+      // Do not send role; just sitter-specific fields
+      base.workRadiusKm    = toNum(workRadiusKm);
+      base.hourlyRate      = toNum(hourlyRate);
+      base.experienceYears = toNum(experienceYears);
+      base.certifications  = fromCsv(certificationsCsv);
     } else {
       base.role = "parent";
       base.preferences = {

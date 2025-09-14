@@ -150,6 +150,31 @@ export default function BabysitterDetailsScreen() {
             <View style={{ marginTop: 6 }}>
               <RatingStars rating={ui.ratingAvg || 0} count={ui.ratingCount || 0} />
             </View>
+
+            {/* ADDED: See reviews button */}
+            <Pressable
+              onPress={() =>
+                navigation.navigate("BabysitterReviews", {
+                  sitterId: (babysitter?._id || sitterId),
+                  sitterName: ui.name,
+                })
+              }
+              style={{
+                marginTop: 8,
+                alignSelf: "flex-start",
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: "#fff",
+              }}
+            >
+              <Text style={{ color: colors.textDark, fontWeight: "700" }}>
+                See {ui.ratingCount || 0} review{(ui.ratingCount || 0) === 1 ? "" : "s"}
+              </Text>
+            </Pressable>
+            {/* END ADDED */}
           </View>
           <View style={{ backgroundColor: colors.accent, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 }}>
             <Text style={{ fontWeight: "700", color: colors.textDark }}>
