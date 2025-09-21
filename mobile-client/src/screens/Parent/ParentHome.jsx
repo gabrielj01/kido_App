@@ -1,7 +1,3 @@
-// mobile-client/src/screens/Parent/ParentHome.jsx
-// Parent Home screen — refreshed with real upcoming bookings
-// Comments and labels in English as requested.
-
 import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
@@ -109,7 +105,6 @@ export default function ParentHome({ navigation }) {
   // Pull-to-refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // You can also re-run the prompt check, but it's not mandatory
     load(true).finally(() => {});
   }, [load]);
 

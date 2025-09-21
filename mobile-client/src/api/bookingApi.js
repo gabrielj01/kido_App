@@ -1,4 +1,3 @@
-// mobile-client/src/api/bookingApi.js
 import api from "./client";
 import { emit } from "../contexts/EventBus";
 

@@ -1,4 +1,3 @@
-// All comments in English as requested.
 import React from "react";
 import { Modal, View, Text, Pressable } from "react-native";
 import { colors } from "../theme/color";

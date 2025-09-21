@@ -1,4 +1,3 @@
-// server/src/controllers/userController.js
 import User from "../models/User.js";
 import fs from "fs";
 import path from "path";
@@ -37,7 +36,6 @@ function normalizePatch(patch) {
     const pieces = [street?.trim(), city?.trim()].filter(Boolean);
     out.address = pieces.join(", "); // e.g. "Herzl 12, Tel Aviv"
     if (radiusKm !== undefined && out.workRadiusKm === undefined) {
-      // expose radiusKm at root if needed by your app
       out.workRadiusKm = Number(radiusKm) || 0;
     }
   }

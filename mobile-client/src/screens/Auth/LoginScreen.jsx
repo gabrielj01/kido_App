@@ -1,4 +1,3 @@
-// src/screens/Auth/LoginScreen.jsx
 import React, { useMemo, useState } from 'react';
 import {
   View,
@@ -22,7 +21,6 @@ export default function LoginScreen({ navigation }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // ✅ Centralize colors so you can easily map them to your global theme later
   const THEME = useMemo(
     () => ({
       primary: '#FF7A59', // warm playful orange
@@ -46,7 +44,6 @@ export default function LoginScreen({ navigation }) {
     Keyboard.dismiss();
     try {
       setSubmitting(true);
-      // `login` may be sync or async in your app; awaiting handles both cases safely
       await Promise.resolve(login(email.trim(), password));
     } catch (e) {
       setError(e?.message || 'Login failed. Please try again.');

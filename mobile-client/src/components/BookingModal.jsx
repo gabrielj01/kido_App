@@ -1,4 +1,3 @@
-// mobile-client/src/components/BookingModal.jsx
 import React, { useMemo, useState } from "react";
 import { View, Text, Modal, Pressable, FlatList, Alert } from "react-native";
 import dayjs from "dayjs";

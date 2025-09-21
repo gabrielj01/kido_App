@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Search/BabysitterSearchScreen.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View,

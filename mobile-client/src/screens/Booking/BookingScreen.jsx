@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Booking/BookingScreen.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, Platform, Alert, ActivityIndicator, ToastAndroid } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -96,7 +95,6 @@ export default function BookingScreen() {
       setStartTime(s);
       setEndTime(e);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [showConfirm, setShowConfirm] = useState(false);
@@ -194,7 +192,7 @@ export default function BookingScreen() {
         Alert.alert("Booking confirmed", "Your booking was created successfully.");
       }
 
-      // Go back or navigate to a "My Bookings" screen if you have one
+
       navigation.goBack();
     } catch (err) {
       setShowConfirm(false);

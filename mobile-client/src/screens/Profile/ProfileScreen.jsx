@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Profile/ProfileScreen.jsx
 import React, { useMemo, useCallback, useState } from "react";
 import {
   View,
@@ -16,7 +15,7 @@ import { colors } from "../../theme/color";
 import Chip from "../../components/Chip";
 import RatingStars from "../../components/RatingStars";
 import { useAuth } from "../../hooks/useAuth";
-import api from "../../api/client"; // axios instance with token
+import api from "../../api/client";
 
 function getInitials(name = "") {
   const parts = String(name).trim().split(/\s+/).slice(0, 2);
@@ -114,7 +113,7 @@ export default function ProfileScreen() {
   }, [user, ratingAvg, ratingCount, hourlyRate]);
 
   function onEditProfile() {
-    navigation.navigate("EditProfile"); // assumes your navigator screen name
+    navigation.navigate("EditProfile"); 
   }
 
   function onLogout() {

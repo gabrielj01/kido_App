@@ -12,7 +12,6 @@ router.get("/", authMiddleware, listBabysitters);
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    // Use the users collection as your project stores sitters there
     const doc = await User.findById(id).lean();
     if (!doc) return res.status(404).json({ error: "Babysitter not found" });
     res.json({ data: doc });

@@ -26,7 +26,6 @@ try {
 const importedColors = importedNS?.colors || importedDefault || importedNS?.default || null;
 
 export default function SignupStep2({ navigation, route }) {
-  // --- Step1 base data (kept exactly like your previous flow)
   const placesRef = useRef(null);
   const { name, email, password, role = 'parent' } = route?.params || {};
 

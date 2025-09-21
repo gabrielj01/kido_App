@@ -1,4 +1,3 @@
-// screens/Auth/SitterStep4.jsx
 import React, { useMemo, useRef, useState } from 'react';
 import {
   View,

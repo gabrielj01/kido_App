@@ -1,4 +1,3 @@
-// mobile-client/src/api/client.js
 import axios from 'axios';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';

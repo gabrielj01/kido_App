@@ -1,4 +1,3 @@
-// All comments in English as requested.
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, Text, Image, ScrollView, Pressable, Alert, ActivityIndicator } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";

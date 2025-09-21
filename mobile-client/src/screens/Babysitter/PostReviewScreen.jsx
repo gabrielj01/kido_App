@@ -1,4 +1,3 @@
-// All comments in English as requested.
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";

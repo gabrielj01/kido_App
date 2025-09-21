@@ -1,4 +1,3 @@
-// mobile-client/src/navigation/AppNavigator.jsx
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';

@@ -1,4 +1,3 @@
-// All comments in English as requested.
 import React, { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";

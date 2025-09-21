@@ -1,9 +1,7 @@
-// All comments in English as requested.
 import User from "../models/User.js";
 import Review from "../models/Review.js";
 import mongoose from "mongoose";
 
-/** Helpers (kept from your original file) */
 const toNum = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
@@ -292,12 +290,12 @@ export async function addSitterReview(req, res) {
 
   // Create review respecting your schema fields
   const doc = await Review.create({
-    bookingId: bookingId || undefined,        // unique (one review per booking)
-    reviewerId: reviewerId || undefined,      // parent user id (optional if anonymous)
-    revieweeId: id,                            // the babysitter user id
+    bookingId: bookingId || undefined,
+    reviewerId: reviewerId || undefined,
+    revieweeId: id,
     rating,
     comment: (comment || "").trim(),
-    authorName: (authorName || "Parent").trim(), // optional enhancement stored in schema (see model)
+    authorName: (authorName || "Parent").trim(),
   });
 
   await recomputeSitterStats(id);

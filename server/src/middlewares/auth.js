@@ -1,5 +1,3 @@
-// middleware/auth.js
-// Minimal JWT guard with clean error messages.
 import jwt from 'jsonwebtoken';
 
 export function requireAuth(req, res, next) {
@@ -25,7 +23,6 @@ export function requireAuth(req, res, next) {
 export function requireSelfOrAdmin(req, res, next) {
   const { id } = req.params;
   if (req.user?.id === id) return next();
-  // If you plan admins later:
   if (req.user?.role === 'admin') return next();
   return res.status(403).json({ error: 'Forbidden: you can only modify your own profile.' });
 }

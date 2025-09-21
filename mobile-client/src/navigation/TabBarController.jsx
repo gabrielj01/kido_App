@@ -1,4 +1,3 @@
-// mobile-client/src/navigation/TabBarController.jsx
 import React, { createContext, useContext, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {

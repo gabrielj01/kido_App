@@ -1,4 +1,3 @@
-// All comments in English as requested.
 import mongoose from "mongoose";
 const { Schema, model, models, Types } = mongoose;
 

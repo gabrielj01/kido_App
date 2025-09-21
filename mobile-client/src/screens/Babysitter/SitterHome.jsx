@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Babysitter/SitterHome.jsx
 import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
@@ -90,7 +89,6 @@ export default function SitterHome({ navigation }) {
       <View style={styles.headerCard}>
         <View style={styles.headerRow}>
           <View style={styles.avatarWrap}>
-            {/* If you have user.photoUrl, place it below */}
             <Image
               source={{
                 uri: user?.photoUrl || 'https://i.pravatar.cc/150?img=12',

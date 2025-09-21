@@ -1,4 +1,3 @@
-// server/src/config/mongo.js
 import mongoose from 'mongoose';
 
 let connecting = null;

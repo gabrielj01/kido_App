@@ -1,4 +1,3 @@
-// server/src/controllers/auth.controller.js
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -108,7 +107,7 @@ export const signup = async (req, res, next) => {
   }
 };
 
-// LOGIN unchanged (kept your logs)
+
 export const login = async (req, res, next) => {
   try {
     console.log('🔥 login payload:', req.body);

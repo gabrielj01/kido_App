@@ -1,4 +1,3 @@
-// mobile-client/src/screens/Babysitter/SitterRequestsScreen.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, FlatList, Pressable, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import api from "../../api/client";

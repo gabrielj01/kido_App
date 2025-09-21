@@ -1,4 +1,3 @@
-// screens/Auth/Signup.jsx
 import React, { useContext, useMemo, useState } from 'react';
 import {
   View,
@@ -16,12 +15,10 @@ import { useRoute } from '@react-navigation/native';
 import { AuthContext } from '../../contexts/AuthContext';
 
 
-// --- Optional theme import with safe fallback to ensure screen never crashes
 let modAdef, modAns;
 try { modAdef = require('../../theme/colors').default; modAns = require('../../theme/colors'); } catch (_) {}
 const importedColors = modAns?.colors || modAdef || modAns?.default || null;
 
-// Language label map for nicer display
 const LANGUAGE_LABELS = {
   en: 'English',
   he: 'Hebrew',
@@ -51,7 +48,6 @@ export default function Signup({ navigation }) {
     []
   );
 
-  // --- Extract + normalize params coming from previous steps
   const p = route?.params || {};
   const role = p?.role || 'parent';
   const address = p?.addressData?.address ?? p?.address ?? '';
@@ -88,7 +84,6 @@ export default function Signup({ navigation }) {
   const fmtGender = (g) =>
     g === 'female' ? 'Female' : g === 'male' ? 'Male' : g === 'any' ? 'Any' : toReadable(g);
 
-  // --- Build review sections dynamically (only show existing values)
   const commonRows = [
     { label: 'Name', value: p?.name },
     { label: 'Email', value: (p?.email || '').toLowerCase() },
@@ -128,7 +123,6 @@ export default function Signup({ navigation }) {
         ].filter(Boolean)
       : [];
 
-  // --- Small utility to render a section
   const Section = ({ title, rows, onEdit }) => {
     if (!rows || rows.length === 0) return null;
     return (
@@ -193,11 +187,11 @@ export default function Signup({ navigation }) {
     return acc;
   }, {});
 
-  // --- Actions
+
   const onSubmit = async () => {
     try {
       setSubmitting(true);
-      await signup(payload); // AuthContext should switch stacks on success
+      await signup(payload);
       Alert.alert('Welcome!', 'Your account has been created.');
     } catch (err) {
       const status = err?.response?.status;
@@ -221,13 +215,11 @@ export default function Signup({ navigation }) {
     }
   };
 
-  // --- Edit shortcuts (navigate back with existing params)
   const editBasic = () => navigation.navigate('SignupStep1', { ...route.params });
   const editAddress = () => navigation.navigate('SignupStep2', { ...route.params });
   const editParentChildren = () => navigation.navigate('ParentStep2', { ...route.params });
   const editParentNeeds = () => navigation.navigate('ParentStep3', { ...route.params });
   const editParentPrefs = () => navigation.navigate('ParentStep4', { ...route.params });
-  // Optional sitter edits if these routes exist in your navigator:
   const editSitterAbout = () => navigation.navigate?.('SitterStep2', { ...route.params });
 
   return (

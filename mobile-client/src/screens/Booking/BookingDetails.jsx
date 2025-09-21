@@ -215,7 +215,7 @@ export default function BookingDetails({ route, navigation }) {
     sitter?.yearsOfExperience ??
     (typeof sitter?.experience === 'object' ? sitter?.experience?.years : undefined);
 
-  const distanceKm = booking?.distanceKm; // if provided by your backend
+  const distanceKm = booking?.distanceKm; 
   const step = computeStep(status, start, end);
 
   /* ----------------------------

@@ -1,4 +1,3 @@
-// server/src/controllers/validationController.js
 import { User } from "../models/User.js";
 
 // GET /api/validate/email?email=... OR ?value=...
@@ -12,7 +11,6 @@ export async function checkEmailAvailability(req, res) {
     return res.status(500).json({ error: "Failed to validate email", details: err.message });
   }
 }
-
 // GET /api/validate/username?username=... OR ?value=...
 export async function checkUsernameAvailability(req, res) {
   try {

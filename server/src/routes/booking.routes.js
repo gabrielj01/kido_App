@@ -1,4 +1,3 @@
-// server/src/routes/booking.routes.js
 import { Router } from "express";
 import {
   createBooking,

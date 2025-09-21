@@ -11,7 +11,6 @@ const colors = importedNS?.colors || importedDefault || importedNS?.default || {
   bg:'#FFFFFF', card:'#FFFFFF', border:'#E5E7EB', accent:'#FDE68A'
 };
 
-// Same slots as in your SitterStep4
 const SLOTS = ['08:00 - 12:00','12:00 - 16:00','16:00 - 20:00','20:00 - 00:00'];
 
 // Dot colors per slot (distinct but soft)

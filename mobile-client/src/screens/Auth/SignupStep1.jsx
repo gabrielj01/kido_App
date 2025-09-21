@@ -1,4 +1,3 @@
-// screens/Auth/SignupStep1.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -15,7 +14,6 @@ import {
 } from 'react-native';
 import { checkEmailAvailability } from '../../services/userService';
 
-// --- Optional theme import with safe fallback (keeps screen robust if file missing)
 let importedDefault, importedNS;
 try {
   importedDefault = require('../../theme/colors').default;
@@ -34,11 +32,11 @@ export default function SignupStep1({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secure, setSecure] = useState(true);
-  const [role, setRole] = useState('parent'); // 'parent' | 'babysitter'
+  const [role, setRole] = useState('parent'); 
 
   // --- Live email availability
   const [emailChecking, setEmailChecking] = useState(false);
-  const [emailAvailable, setEmailAvailable] = useState(null); // null | true | false
+  const [emailAvailable, setEmailAvailable] = useState(null); 
   const [emailError, setEmailError] = useState(null);
 
   // --- Refs for smooth "Next" on keyboard

@@ -24,7 +24,6 @@ function validateTimes(start, end) {
 
 export async function createBooking(req, res) {
   try {
-    // Tolerant auth extraction (selon ton middleware)
     const parentId =
       req.user?.id ||
       req.user?._id ||
@@ -97,13 +96,12 @@ export async function createBooking(req, res) {
     const rateSnapshot = Number(sitter.hourlyRate || 0);
     const totalPrice = Math.round(totalHours * rateSnapshot * 100) / 100;
 
-    // ✅ Création avec les champs exigés par ton modèle
     const created = await Booking.create({
       parentId,
-      sitterId,           // <— champ attendu par ton schema
-      date,               // "YYYY-MM-DD"
-      startISO,           // ISO string
-      endISO,             // ISO string
+      sitterId,
+      date,
+      startISO,
+      endISO,
       status: "pending",
       rateSnapshot,
       totalHours,
@@ -289,7 +287,6 @@ export async function getUpcoming(req, res) {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     // Default: only accepted bookings in the future
-    // You can pass ?status=accepted,pending to include multiple
     const statusQ = (req.query.status || "accepted")
       .split(",")
       .map((s) => s.trim())

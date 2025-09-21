@@ -83,7 +83,7 @@ function resolveUploadedUrl(resp, api, cfg) {
   const base = getBaseUrl(api, cfg);
 
   let urlLike =
-    data.photoUrl || // your server returns { photoUrl }
+    data.photoUrl || 
     data.url ||
     data.avatarUrl ||
     data.path ||
