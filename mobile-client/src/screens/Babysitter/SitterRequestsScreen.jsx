@@ -6,7 +6,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import { colors } from "../../theme/color";
 import { emit } from "../../contexts/EventBus";
 import Swipeable from "react-native-gesture-handler/Swipeable";
-import { Ionicons } from "@expo/vector-icons";
+import  Ionicons  from "@expo/vector-icons/Ionicons";
 import { hideBookingById } from "../../api/bookingApi";
 
 const FILTERS = ["pending", "accepted", "declined", "cancelled", "completed"];

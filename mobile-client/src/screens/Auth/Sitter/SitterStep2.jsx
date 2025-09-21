@@ -133,7 +133,6 @@ export default function SitterStep2() {
                 returnKeyType="next"
               />
               <Text style={{ color: THEME.textMuted, fontSize: 11, marginTop: 6 }}>
-                For MVP we just need a positive value.
               </Text>
             </View>
 

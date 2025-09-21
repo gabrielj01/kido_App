@@ -14,10 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "ios.infoPlist": {
+      "infoPlist": {
         "NSPhotoLibraryUsageDescription": "We use your photo library to update your profile picture.",
         "NSCameraUsageDescription": "We use your camera to take a profile picture."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.mobile-client"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,6 +29,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

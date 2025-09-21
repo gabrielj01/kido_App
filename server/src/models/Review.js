@@ -4,10 +4,9 @@ const { Schema, model, models, Types } = mongoose;
 
 const ReviewSchema = new Schema(
   {
-    // Do NOT put unique/index here on the field; we centralize indexes below.
     bookingId:   { type: Types.ObjectId, ref: "Booking", sparse: true },
-    reviewerId:  { type: Types.ObjectId, ref: "User" },               // parent (optional)
-    revieweeId:  { type: Types.ObjectId, ref: "User", required: true },// babysitter (required)
+    reviewerId:  { type: Types.ObjectId, ref: "User" },
+    revieweeId:  { type: Types.ObjectId, ref: "User", required: true },
     rating:      { type: Number, min: 1, max: 5, required: true },
     comment:     { type: String, maxlength: 1000, trim: true },
     authorName:  { type: String, maxlength: 120, trim: true, default: "Parent" },

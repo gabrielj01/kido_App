@@ -15,12 +15,6 @@ import {
 import { useRoute } from '@react-navigation/native';
 import { AuthContext } from '../../contexts/AuthContext';
 
-/**
- * Review & Create Account
- * - Summarizes user inputs from all signup steps (common + parent/sitter specifics).
- * - Provides "Edit" shortcuts to navigate back to relevant steps.
- * - Builds a clean payload and calls signup().
- */
 
 // --- Optional theme import with safe fallback to ensure screen never crashes
 let modAdef, modAns;

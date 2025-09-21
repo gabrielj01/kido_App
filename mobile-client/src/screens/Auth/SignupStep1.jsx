@@ -221,7 +221,6 @@ export default function SignupStep1({ navigation }) {
                 </Pressable>
               </View>
               <Text style={{ color: THEME.textMuted, fontSize: 11, marginTop: 6 }}>
-                For MVP, any password is accepted. You can change it later in your profile.
               </Text>
             </View>
 

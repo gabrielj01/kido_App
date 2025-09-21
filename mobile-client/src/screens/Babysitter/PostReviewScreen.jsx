@@ -6,7 +6,7 @@ import { colors } from "../../theme/color";
 import RatingStars from "../../components/RatingStars"; // display-only; we'll add simple star input below
 import { addSitterReview } from "../../services/reviewsService";
 import * as AuthHook from "../../hooks/useAuth";
-import { Ionicons } from "@expo/vector-icons";
+import  Ionicons  from "@expo/vector-icons/Ionicons";
 const useAuth = AuthHook.useAuth || AuthHook.default;
 
 
