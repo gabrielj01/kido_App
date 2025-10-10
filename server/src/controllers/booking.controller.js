@@ -1,5 +1,61 @@
+// server/src/controllers/booking.controller.js
 import { Booking } from "../models/Booking.js";
 import { User } from "../models/User.js";
+import mongoose from "mongoose";
+
+/* --------------------------------
+ * Utilities
+ * ------------------------------- */
+
+// Build a details object from parent profile when booking.details is missing
+function detailsFromParent(parent) {
+  if (!parent) return null;
+  // Try common shapes: preferences.* + top-level fields we might store on parent
+  const prefs = parent.preferences || {};
+  const emergency = parent.emergencyContact || {};
+  const details = {
+    kids: parent.kids || null,
+    dietaryPreferences: prefs.dietaryPreferences || prefs.dietary || null,
+    allergies: prefs.allergies || null,
+    bedtime: prefs.bedtime || null,
+    instructions: prefs.instructions || null,
+    pets: prefs.pets || null,
+    address: parent.address || null,
+    emergencyContact: {
+      name: emergency.name || null,
+      phone: emergency.phone || null,
+    },
+  };
+
+  // Remove null/empty keys to keep payload clean
+  Object.keys(details).forEach((k) => {
+    const v = details[k];
+    const isEmptyObj = v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0;
+    if (v == null || (Array.isArray(v) && v.length === 0) || isEmptyObj) {
+      delete details[k];
+    }
+  });
+
+  return Object.keys(details).length ? details : null;
+}
+
+async function autoCompleteEndedBookings() {
+  // Convert any 'accepted' booking to 'completed' when its endISO is in the past.
+  const now = new Date();
+
+  // Safer cross-Mongo approach: fetch candidates and filter in JS (endISO is a string)
+  const candidates = await Booking.find({ status: "accepted" }).select("_id endISO");
+  const toComplete = candidates
+    .filter((b) => {
+      const end = new Date(b.endISO || 0);
+      return !Number.isNaN(end) && end < now;
+    })
+    .map((b) => b._id);
+
+  if (toComplete.length) {
+    await Booking.updateMany({ _id: { $in: toComplete } }, { $set: { status: "completed" } });
+  }
+}
 
 function overlaps(aStart, aEnd, bStart, bEnd) {
   const aS = new Date(aStart);
@@ -21,29 +77,26 @@ function validateTimes(start, end) {
   return null;
 }
 
+/* --------------------------------
+ * Controllers
+ * ------------------------------- */
 
 export async function createBooking(req, res) {
   try {
-    const parentId =
-      req.user?.id ||
-      req.user?._id ||
-      req.userId ||
-      req.auth?.id ||
-      null;
-
+    const parentId = req.user?.id || req.user?._id || req.userId || req.auth?.id || null;
     if (!parentId) {
       return res.status(401).json({ error: "Unauthorized: missing user context." });
     }
 
     const body = req.body || {};
 
-    // 🔁 Compatibilité double format (nouveau & ancien)
+    // Compatibility with older/newer payloads
     const sitterId = body.sitterId || body.babysitterId;
     let date = body.date;
     const startISO = body.startISO || body.startTime;
     const endISO = body.endISO || body.endTime;
 
-    // Si "date" absent, on le dérive de startISO (au format YYYY-MM-DD)
+    // Derive date (YYYY-MM-DD) if not provided
     if (!date && startISO) {
       const d = new Date(startISO);
       if (!Number.isNaN(d.getTime())) {
@@ -68,7 +121,7 @@ export async function createBooking(req, res) {
       return res.status(400).json({ error: "end time must be after start time." });
     }
 
-    // Vérifier que la cible est bien un babysitter
+    // Ensure target user is a babysitter
     const sitter = await User.findById(sitterId);
     if (!sitter) return res.status(404).json({ error: "Sitter not found." });
     const role = String(sitter.role || "").toLowerCase();
@@ -76,23 +129,21 @@ export async function createBooking(req, res) {
       return res.status(400).json({ error: "Target user is not a babysitter." });
     }
 
-    // Anti-overlap sur le même sitter+date pour (pending|accepted)
+    // Anti-overlap on same sitter/date for (pending|accepted)
     const existing = await Booking.find({
       sitterId,
       status: { $in: ["pending", "accepted"] },
       date,
     });
 
-    const conflict = existing.some((b) =>
-      overlaps(new Date(b.startISO), new Date(b.endISO), start, end)
-    );
+    const conflict = existing.some((b) => overlaps(new Date(b.startISO), new Date(b.endISO), start, end));
     if (conflict) {
       return res.status(409).json({ error: "This time overlaps with an existing booking." });
     }
 
     // Pricing snapshot
     const hours = (end - start) / 3_600_000;
-    const totalHours = Math.max(0, Math.round(hours * 4) / 4); // arrondi 1/4 h
+    const totalHours = Math.max(0, Math.round(hours * 4) / 4); // quarter-hour rounding
     const rateSnapshot = Number(sitter.hourlyRate || 0);
     const totalPrice = Math.round(totalHours * rateSnapshot * 100) / 100;
 
@@ -108,9 +159,10 @@ export async function createBooking(req, res) {
       totalPrice,
     });
 
-    // Option: renvoyer la version peuplée pour l’UI
+    // Return a populated doc useful for UI
     const doc = await Booking.findById(created._id)
-      .populate("sitterId", "name hourlyRate role email");
+      .populate("sitterId", "name role email hourlyRate photoUrl avatarUrl certifications languages")
+      .populate("parentId", "name email role address preferences kids emergencyContact");
 
     return res.status(201).json(doc);
   } catch (err) {
@@ -123,29 +175,39 @@ export async function createBooking(req, res) {
 export async function getBookingById(req, res) {
   try {
     const { id } = req.params;
+
+    // Populate both sides with exactly what the app needs (avatar + parent prefs)
     const booking = await Booking.findById(id)
-      .populate("parentId", "name email role")
-      .populate("sitterId", "name email role hourlyRate certifications");
+      .populate("parentId", "name email role address preferences kids emergencyContact photoUrl avatarUrl")
+      .populate("sitterId", "name email role hourlyRate certifications languages photoUrl avatarUrl experienceYears")
+      .lean();
+
     if (!booking) return res.status(404).json({ error: "Booking not found" });
-    return res.json(booking);
+
+    // Hydrate details from parent profile if missing/empty on the booking
+    const hasDetails = booking.details && Object.keys(booking.details || {}).length > 0;
+    const hydrated = !hasDetails ? detailsFromParent(booking.parentId) : null;
+
+    // Return a clean object with 'details' guaranteed when possible
+    return res.json({
+      ...booking,
+      details: hasDetails ? booking.details : hydrated || booking.details || null,
+    });
   } catch (err) {
+    console.error("getBookingById error:", err);
     return res.status(500).json({ error: "Failed to fetch booking", details: err.message });
   }
 }
 
-// GET /api/bookings?parentId=...&babysitterId=...&status=...
+// GET /api/bookings?role=parent|sitter&status=...
 export async function listBookings(req, res) {
+  await autoCompleteEndedBookings();
   try {
-    const uid =
-      req.user?.id ||
-      req.user?._id ||
-      req.userId ||
-      null;
-
+    const uid = req.user?.id || req.user?._id || req.userId || null;
     const { role, status } = req.query || {};
     const filter = {};
 
-    // If client passes role, use it; else default to parent with req.user
+    // Role-based filter; default to parent with req.user
     if (role === "parent") {
       filter.parentId = uid;
       filter.hiddenForParent = { $ne: true };
@@ -157,18 +219,17 @@ export async function listBookings(req, res) {
       filter.hiddenForParent = { $ne: true };
     }
 
-
     if (status) filter.status = status;
 
     const data = await Booking.find(filter)
       .sort({ startISO: 1 })
-      .populate("sitterId", "name hourlyRate")
-      .populate("parentId", "name");
+      .populate("sitterId", "name hourlyRate photoUrl avatarUrl")
+      .populate("parentId", "name photoUrl")
+      .lean();
 
-    // Always return an array (simpler for clients)
     return res.json(Array.isArray(data) ? data : []);
   } catch (err) {
-    console.error("listMyBookings error:", err);
+    console.error("listBookings error:", err);
     return res.status(500).json({ error: "Failed to list bookings", details: err.message });
   }
 }
@@ -192,8 +253,14 @@ export async function cancelBooking(req, res) {
 
     booking.status = "cancelled";
     await booking.save();
-    return res.json(booking);
+
+    const populated = await Booking.findById(id)
+      .populate("sitterId", "name hourlyRate photoUrl avatarUrl")
+      .populate("parentId", "name email photoUrl");
+
+    return res.json(populated);
   } catch (err) {
+    console.error("cancelBooking error:", err);
     return res.status(500).json({ error: "Failed to cancel booking", details: err.message });
   }
 }
@@ -224,8 +291,8 @@ export async function sitterDecision(req, res) {
     await booking.save();
 
     const populated = await Booking.findById(id)
-      .populate("sitterId", "name hourlyRate")
-      .populate("parentId", "name email");
+      .populate("sitterId", "name hourlyRate photoUrl avatarUrl")
+      .populate("parentId", "name email photoUrl");
 
     return res.json(populated);
   } catch (err) {
@@ -236,13 +303,7 @@ export async function sitterDecision(req, res) {
 
 export async function hideBooking(req, res) {
   try {
-    const uid =
-      req.user?.id ||
-      req.user?._id ||
-      req.userId ||
-      req.auth?.id ||
-      null;
-
+    const uid = req.user?.id || req.user?._id || req.userId || req.auth?.id || null;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 
     const { id } = req.params;
@@ -276,12 +337,10 @@ export async function hideBooking(req, res) {
   }
 }
 
-
 // Get upcoming bookings for the current user (parent or babysitter)
 export async function getUpcoming(req, res) {
   try {
-    const userId =
-      req.user?.id || req.user?._id || req.userId || req.auth?.id || null;
+    const userId = req.user?.id || req.user?._id || req.userId || req.auth?.id || null;
     const role = String(req.user?.role || "").toLowerCase(); // "parent" | "babysitter"
 
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
@@ -320,8 +379,8 @@ export async function getUpcoming(req, res) {
       .sort({ startISO: 1 })
       .limit(limit)
       // populate both sides for names/avatars in UI
-      .populate("sitterId", "name photoUrl hourlyRate role")
-      .populate("parentId", "name photoUrl role")
+      .populate("sitterId", "name photoUrl avatarUrl hourlyRate role")
+      .populate("parentId", "name photoUrl avatarUrl role")
       .lean();
 
     return res.json(bookings);
@@ -360,8 +419,8 @@ export async function completeBooking(req, res) {
     await booking.save();
 
     const populated = await Booking.findById(id)
-      .populate("sitterId", "name hourlyRate")
-      .populate("parentId", "name email");
+      .populate("sitterId", "name hourlyRate photoUrl avatarUrl")
+      .populate("parentId", "name email photoUrl");
 
     return res.json(populated);
   } catch (err) {
@@ -370,3 +429,34 @@ export async function completeBooking(req, res) {
   }
 }
 
+// GET /api/bookings/pending-reviews
+// Returns minimal items the parent can review now (completed & ended, and no existing review)
+export async function getPendingReviews(req, res) {
+  try {
+    const parentId = req.user?.id;
+    if (!parentId) return res.status(401).json({ error: "Unauthorized" });
+
+    const now = new Date();
+    const parentObjId = new mongoose.Types.ObjectId(parentId);
+
+    const rows = await Booking.aggregate([
+      { $match: { parentId: parentObjId, status: "completed" } },
+      // Convert string ISO to date for proper comparison
+      { $addFields: { _end: { $toDate: "$endISO" } } },
+      { $match: { _end: { $lt: now } } },
+      // Join with reviews to ensure none exists for this booking
+      { $lookup: { from: "reviews", localField: "_id", foreignField: "bookingId", as: "rev" } },
+      { $match: { $expr: { $eq: [{ $size: "$rev" }, 0] } } },
+      // Bring sitter's display name
+      { $lookup: { from: "users", localField: "sitterId", foreignField: "_id", as: "sitter" } },
+      { $unwind: { path: "$sitter", preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 0, bookingId: "$_id", sitterId: 1, sitterName: "$sitter.name" } },
+      { $limit: 10 },
+    ]);
+
+    return res.json({ data: rows });
+  } catch (err) {
+    console.error("getPendingReviews error:", err);
+    return res.status(500).json({ error: "Failed to load pending reviews", details: err.message });
+  }
+}

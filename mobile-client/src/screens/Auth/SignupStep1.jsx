@@ -12,79 +12,101 @@ import {
   StyleSheet,
   Keyboard,
 } from 'react-native';
-import { checkEmailAvailability } from '../../services/userService';
+import { checkEmailAvailability, checkUsernameAvailability } from '../../services/userService';
 
+// --- Optional theme import with safe fallback (match your file name: theme/color.js) ---
 let importedDefault, importedNS;
 try {
-  importedDefault = require('../../theme/colors').default;
-  importedNS = require('../../theme/colors');
+  importedDefault = require('../../theme/color').default;
+  importedNS = require('../../theme/color');
 } catch (_) {
   importedDefault = null;
   importedNS = {};
 }
 const importedColors = importedNS?.colors || importedDefault || importedNS?.default || null;
 
+// --- Simple validators & helpers (kept local to this file) ---
+const USERNAME_RE = /^[a-zA-Z0-9._-]{3,20}$/;
 const isValidEmail = (v) => /\S+@\S+\.\S+/.test(String(v || '').trim());
+const digitsOnly = (v) => String(v || '').replace(/[^\d+]/g, '');
+const toE164IL = (v) => {
+  const s = digitsOnly(v);
+  if (s.startsWith('+972')) return s;
+  const d = s.replace(/\D/g, '');
+  if (d.startsWith('972')) return '+972' + d.slice(3);
+  if (d.startsWith('0')) return '+972' + d.slice(1);
+  return '';
+};
+const isValidILPhone = (v) => /^\+972(?:[2-9]\d{7}|5\d{8})$/.test(toE164IL(v));
 
 export default function SignupStep1({ navigation }) {
   // --- Form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState(''); // moved to Step 1
   const [password, setPassword] = useState('');
   const [secure, setSecure] = useState(true);
-  const [role, setRole] = useState('parent'); 
+  const [role, setRole] = useState('parent');
+  const [phone, setPhone] = useState('');
+
+  // --- Refs
+  const emailRef = useRef(null);
+  const phoneRef = useRef(null);
+  const passwordRef = useRef(null);
 
   // --- Live email availability
   const [emailChecking, setEmailChecking] = useState(false);
-  const [emailAvailable, setEmailAvailable] = useState(null); 
+  const [emailAvailable, setEmailAvailable] = useState(null);
   const [emailError, setEmailError] = useState(null);
 
-  // --- Refs for smooth "Next" on keyboard
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
+  // --- Live username availability
+  const [userChecking, setUserChecking] = useState(false);
+  const [userAvailable, setUserAvailable] = useState(null);
+  const [userError, setUserError] = useState(null);
 
-  const timerRef = useRef(null);
+  // --- Debounce timers (separate for email & username)
+  const emailTimerRef = useRef(null);
+  const userTimerRef = useRef(null);
 
   // --- Theme (merged with optional external theme)
   const THEME = useMemo(
     () => ({
-      primary: importedColors?.primary ?? '#FF7A59',    // playful orange
-      secondary: importedColors?.secondary ?? '#4ECDC4',// teal accent
+      primary: importedColors?.primary ?? '#FF7A59',     // playful orange
+      secondary: importedColors?.secondary ?? '#4ECDC4', // teal accent
       bg: importedColors?.bg ?? '#F7F9FC',
       card: importedColors?.card ?? '#FFFFFF',
       text: importedColors?.textDark ?? '#1F2D3D',
       textMuted: importedColors?.textLight ?? '#6B7A90',
       border: importedColors?.border ?? '#E6ECF2',
       danger: importedColors?.danger ?? '#E63946',
-      ok: '#2BA84A',   // success green
-      warn: '#B26A00', // amber
+      ok: '#2BA84A',
+      warn: '#B26A00',
     }),
     []
   );
 
   // --- Debounced email availability check
   useEffect(() => {
-    // Reset state if email invalid or empty
-    if (!email || !isValidEmail(email)) {
+    const e = (email || '').trim().toLowerCase();
+
+    if (!e || !isValidEmail(e)) {
       setEmailAvailable(null);
       setEmailError(null);
       setEmailChecking(false);
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
       return;
     }
 
     setEmailChecking(true);
     setEmailError(null);
-    if (timerRef.current) clearTimeout(timerRef.current);
-
+    if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
     const controller = new AbortController();
 
-    timerRef.current = setTimeout(async () => {
+    emailTimerRef.current = setTimeout(async () => {
       try {
-        const available = await checkEmailAvailability(email.trim().toLowerCase(), controller.signal);
+        const available = await checkEmailAvailability(e, controller.signal);
         setEmailAvailable(available);
-      } catch (e) {
-        // Show a friendly warning instead of failing silently
+      } catch (err) {
         setEmailAvailable(null);
         setEmailError('Unable to verify email right now. We will re-check on submit.');
       } finally {
@@ -93,33 +115,75 @@ export default function SignupStep1({ navigation }) {
     }, 500);
 
     return () => {
-      controller.abort(); // cancel in-flight request if email changes/unmounts
-      if (timerRef.current) clearTimeout(timerRef.current);
+      controller.abort();
+      if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
     };
   }, [email]);
 
-  // --- Disable Next if fields invalid or email explicitly taken
-  const nextDisabled = useMemo(() => {
-    if (!name?.trim() || !password?.trim() || !isValidEmail(email)) return true;
-    if (emailChecking) return true;           // wait while checking
-    if (emailAvailable === false) return true; // explicitly taken
-    // If emailError exists, allow proceed (server will re-check later)
-    return false;
-  }, [name, password, email, emailChecking, emailAvailable, emailError]);
+  // --- Debounced username availability check
+  useEffect(() => {
+    const u = (username || '').trim().toLowerCase();
 
+    if (!u || !USERNAME_RE.test(u)) {
+      setUserAvailable(null);
+      setUserError(null);
+      setUserChecking(false);
+      if (userTimerRef.current) clearTimeout(userTimerRef.current);
+      return;
+    }
+
+    setUserChecking(true);
+    setUserError(null);
+    if (userTimerRef.current) clearTimeout(userTimerRef.current);
+    const controller = new AbortController();
+
+    userTimerRef.current = setTimeout(async () => {
+      try {
+        const available = await checkUsernameAvailability(u, controller.signal);
+        setUserAvailable(available);
+      } catch (err) {
+        setUserAvailable(null);
+        setUserError('Unable to verify username right now. We will re-check on submit.');
+      } finally {
+        setUserChecking(false);
+      }
+    }, 500);
+
+    return () => {
+      controller.abort();
+      if (userTimerRef.current) clearTimeout(userTimerRef.current);
+    };
+  }, [username]);
+
+  // --- Disable "Next" if invalid
+  const nextDisabled = useMemo(() => {
+    if (!name?.trim()) return true;
+    if (!isValidEmail(email)) return true;
+    if (!USERNAME_RE.test((username || '').trim())) return true;
+    if (userChecking || emailChecking) return true;
+    if (emailAvailable === false) return true;
+    if (userAvailable === false) return true;
+    if (typeof password !== 'string' || password.length < 6) return true; // minimal rule
+    if (!isValidILPhone(phone)) return true;
+    return false;
+  }, [name, email, username, userChecking, emailChecking, emailAvailable, userAvailable, password, phone]);
+
+  // --- Go next (to photo step)
   const handleNext = () => {
     Keyboard.dismiss();
-    navigation.navigate('SignupStep2', {
+    navigation.navigate('SignupPhoto', {
       name: name.trim(),
       email: email.trim().toLowerCase(),
+      username: username.trim().toLowerCase(),
       password,
       role,
+      phone: toE164IL(phone),
     });
   };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: THEME.bg }]}>
-      {/* Decorative header blobs (no extra deps) */}
+      {/* Decorative header blobs */}
       <View style={styles.headerWrap} pointerEvents="none">
         <View style={[styles.blob, { backgroundColor: THEME.primary, top: -70, left: -50, opacity: 0.18 }]} />
         <View style={[styles.blob, { backgroundColor: THEME.secondary, top: -10, right: -60, width: 220, height: 220, opacity: 0.22 }]} />
@@ -137,7 +201,7 @@ export default function SignupStep1({ navigation }) {
 
           {/* Card */}
           <View style={[styles.card, { backgroundColor: THEME.card, shadowColor: THEME.text }]}>
-            {/* Name */}
+            {/* Full name */}
             <View style={styles.field}>
               <Text style={[styles.label, { color: THEME.textMuted }]}>Full name</Text>
               <TextInput
@@ -145,10 +209,7 @@ export default function SignupStep1({ navigation }) {
                 onChangeText={setName}
                 placeholder="Your full name"
                 placeholderTextColor="#A8B3C2"
-                style={[
-                  styles.input,
-                  { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' },
-                ]}
+                style={[styles.input, { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' }]}
                 autoCapitalize="words"
                 returnKeyType="next"
                 onSubmitEditing={() => emailRef.current?.focus()}
@@ -156,7 +217,7 @@ export default function SignupStep1({ navigation }) {
             </View>
 
             {/* Email */}
-            <View style={styles.field}>
+            <View className="field">
               <Text style={[styles.label, { color: THEME.textMuted }]}>Email</Text>
               <TextInput
                 ref={emailRef}
@@ -164,14 +225,11 @@ export default function SignupStep1({ navigation }) {
                 onChangeText={setEmail}
                 placeholder="you@example.com"
                 placeholderTextColor="#A8B3C2"
-                style={[
-                  styles.input,
-                  { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' },
-                ]}
+                style={[styles.input, { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' }]}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 returnKeyType="next"
-                onSubmitEditing={() => passwordRef.current?.focus()}
+                onSubmitEditing={() => {}}
               />
 
               {/* Email live feedback */}
@@ -190,6 +248,65 @@ export default function SignupStep1({ navigation }) {
                 ) : null}
                 {emailError ? (
                   <Text style={{ color: THEME.warn, fontSize: 12, marginTop: 2 }}>{emailError}</Text>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Username */}
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: THEME.textMuted }]}>Username</Text>
+              <TextInput
+                value={username}
+                onChangeText={(t) => setUsername(t)}
+                placeholder="e.g., avi_parent_2025"
+                placeholderTextColor="#A8B3C2"
+                style={[styles.input, { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => phoneRef.current?.focus()}
+              />
+              {/* Username live feedback */}
+              <View style={{ minHeight: 22, marginTop: 6 }}>
+                {!username ? null : !USERNAME_RE.test((username || '').trim()) ? (
+                  <Text style={{ color: THEME.warn, fontSize: 12 }}>
+                    3–20 chars. Letters, digits, dot, dash, underscore only.
+                  </Text>
+                ) : userChecking ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <ActivityIndicator size="small" />
+                    <Text style={{ color: THEME.textMuted, fontSize: 12 }}>Checking username…</Text>
+                  </View>
+                ) : userAvailable === true ? (
+                  <Text style={{ color: THEME.ok, fontSize: 12 }}>Username available ✓</Text>
+                ) : userAvailable === false ? (
+                  <Text style={{ color: THEME.danger, fontSize: 12 }}>Username already in use</Text>
+                ) : userError ? (
+                  <Text style={{ color: THEME.warn, fontSize: 12 }}>{userError}</Text>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Phone */}
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: THEME.textMuted }]}>Phone</Text>
+              <TextInput
+                ref={phoneRef}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="e.g. 050-123-4567"
+                placeholderTextColor="#A8B3C2"
+                style={[styles.input, { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' }]}
+                keyboardType="phone-pad"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                testID="signup-phone"
+              />
+              <View style={{ minHeight: 18, marginTop: 6 }}>
+                {!!phone && !isValidILPhone(phone) ? (
+                  <Text style={{ color: THEME.warn, fontSize: 12 }}>
+                    Please enter a valid Israeli phone (will be saved as +972…).
+                  </Text>
                 ) : null}
               </View>
             </View>
@@ -219,10 +336,11 @@ export default function SignupStep1({ navigation }) {
                 </Pressable>
               </View>
               <Text style={{ color: THEME.textMuted, fontSize: 11, marginTop: 6 }}>
+                Minimum 6 characters.
               </Text>
             </View>
 
-            {/* Role selector (segmented buttons) */}
+            {/* Role selector */}
             <View style={styles.field}>
               <Text style={[styles.label, { color: THEME.textMuted }]}>I am</Text>
               <View style={styles.segmentWrap}>
@@ -265,10 +383,9 @@ export default function SignupStep1({ navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Next"
             >
-              {emailChecking ? <ActivityIndicator color="#FFF" /> : <Text style={styles.ctaText}>Next</Text>}
+              {emailChecking || userChecking ? <ActivityIndicator color="#FFF" /> : <Text style={styles.ctaText}>Next</Text>}
             </Pressable>
 
-            {/* Small note */}
             <Text style={[styles.note, { color: THEME.textMuted, marginTop: 10 }]}>
               Payments are in-person. No online payments needed.
             </Text>
@@ -350,4 +467,3 @@ const styles = StyleSheet.create({
   // Notes
   note: { fontSize: 12, lineHeight: 16 },
 });
-

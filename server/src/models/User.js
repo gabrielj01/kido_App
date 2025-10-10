@@ -58,7 +58,7 @@ const userSchema = new Schema(
     role:     { type: String, enum: ["parent", "babysitter"], required: true },
 
     // Contacts
-    phone:    { type: String, default: "" },
+    phone: { type: String, required: true },
 
     // Location (Israel market)
     address:    { type: mongoose.Schema.Types.Mixed, default: {} }, // keep Mixed for backward compatibility
@@ -79,7 +79,7 @@ const userSchema = new Schema(
 
     // Generic profile/meta
     age:      { type: Number, default: null },
-    photoUrl: { type: String, default: "" },
+    photoUrl: { type: String, default: "" }, // Cloudinary secure_url stored here
     bio:      { type: String, default: "" },
 
     // Ratings aggregate
@@ -104,26 +104,25 @@ const userSchema = new Schema(
         ret.address = toAddressObject(ret.address);
 
         // Map common UI aliases
-        // - Front sometimes reads `type` instead of `role`
         ret.type = ret.role === "babysitter" ? "sitter" : ret.role;
 
-        // - Avatar alias
+        // Avatar alias
         ret.avatarUrl = ret.avatarUrl || ret.photoUrl || "";
 
-        // - Rate alias
+        // Rate alias
         ret.rate = ret.rate ?? ret.hourlyRate;
 
-        // - Work radius also accepted from legacy address.radiusKm
+        // Work radius fallback
         if (ret.workRadiusKm == null && ret.address && typeof ret.address === "object") {
           ret.workRadiusKm = ret.address.radiusKm ?? null;
         }
 
-        // - Languages/dietary at top-level (UI falls back to user.languages / user.dietary)
+        // Languages/dietary at top-level
         const pref = ret.preferences || {};
         ret.languages = Array.isArray(ret.languages) ? ret.languages : (pref.languages || []);
         ret.dietary  = Array.isArray(ret.dietary)  ? ret.dietary  : (pref.dietary  || []);
 
-        // - Stats fallback (UI reads user.stats.bookingsCompleted or user.bookingsCompleted)
+        // Stats fallback
         if (!ret.stats) ret.stats = {};
         if (ret.stats.bookingsCompleted == null && ret.bookingsCompleted != null) {
           ret.stats.bookingsCompleted = ret.bookingsCompleted;
@@ -135,8 +134,7 @@ const userSchema = new Schema(
   }
 );
 
-/** Virtuals that make UI life easier (non-breaking) */
-// In case some parts of UI use .type already
+/** Virtuals */
 userSchema.virtual("type").get(function () {
   return this.role === "babysitter" ? "sitter" : this.role;
 });
@@ -149,7 +147,6 @@ userSchema.virtual("rate").get(function () {
   return this.hourlyRate;
 });
 
-// Top-level aliases for preferences
 userSchema.virtual("languages").get(function () {
   return (this.preferences && this.preferences.languages) || [];
 });
@@ -157,8 +154,13 @@ userSchema.virtual("dietary").get(function () {
   return (this.preferences && this.preferences.dietary) || [];
 });
 
-// Safe index example for geo queries later (optional)
-// userSchema.index({ latitude: 1, longitude: 1 });
+userSchema.index(
+  { phone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { phone: { $type: 'string', $exists: true, $ne: '' } },
+  }
+);
 
 export const User = mongoose.model("User", userSchema);
 export default User;

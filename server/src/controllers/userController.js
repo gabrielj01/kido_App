@@ -1,47 +1,34 @@
 import User from "../models/User.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const serverRoot = path.resolve(__dirname, "../../");
-const uploadsDir = path.join(serverRoot, "uploads");
-
-/** Safely delete a file if it exists (sync, simple & robust for MVP) */
-const deleteFileIfExists = (absolutePath) => {
-  try {
-    if (!absolutePath) return;
-    if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
-  } catch (err) {
-    console.warn("deleteFileIfExists error:", err?.message);
+/** Convert UI address object/string to a normalized storage form */
+function normalizeAddressToString(addr) {
+  if (!addr) return "";
+  if (typeof addr === "object" && !Array.isArray(addr)) {
+    const { city = "", street = "" } = addr;
+    const pieces = [String(street || "").trim(), String(city || "").trim()].filter(Boolean);
+    return pieces.join(", "); // e.g. "Herzl 12, Tel Aviv"
   }
-};
-
-function toAddressObject(addr) {
-  if (!addr) return {};
-  if (typeof addr === "object" && !Array.isArray(addr)) return addr;
-  if (typeof addr === "string") {
-    const [street, city] = addr.split(",").map(s => String(s || "").trim());
-    return { street: street || "", city: city || "" };
-  }
-  return {};
+  if (typeof addr === "string") return addr;
+  return "";
 }
 
+/** Coerce/clean incoming patch payload */
 function normalizePatch(patch) {
   const out = { ...patch };
 
-  if (out.address && typeof out.address === "object" && !Array.isArray(out.address)) {
-    const { city = "", street = "", radiusKm } = out.address || {};
-    const pieces = [street?.trim(), city?.trim()].filter(Boolean);
-    out.address = pieces.join(", "); // e.g. "Herzl 12, Tel Aviv"
+  // Address normalization
+  if (out.address !== undefined) {
+    out.address = normalizeAddressToString(out.address);
+    // Optional: accept address.radiusKm into workRadiusKm
+    const radiusKm = patch?.address?.radiusKm;
     if (radiusKm !== undefined && out.workRadiusKm === undefined) {
-      out.workRadiusKm = Number(radiusKm) || 0;
+      const n = Number(radiusKm);
+      out.workRadiusKm = Number.isFinite(n) ? n : undefined;
     }
   }
 
-  // ---- Numeric soft-casts (common when inputs come from text fields) ----
-  const numericKeys = ["hourlyRate", "experienceYears", "latitude", "longitude", "workRadiusKm"];
+  // Numeric soft-casts (when inputs come as strings)
+  const numericKeys = ["hourlyRate", "experienceYears", "latitude", "longitude", "workRadiusKm", "age"];
   for (const key of numericKeys) {
     if (out[key] !== undefined && out[key] !== null && out[key] !== "") {
       const n = Number(out[key]);
@@ -49,7 +36,7 @@ function normalizePatch(patch) {
     }
   }
 
-  // ---- Arrays normalization (CSV -> array) ----
+  // CSV → array normalization
   const csvToArray = (v) =>
     Array.isArray(v)
       ? v
@@ -58,11 +45,9 @@ function normalizePatch(patch) {
           .map((s) => s.trim())
           .filter(Boolean);
 
-  if (out.certifications !== undefined) {
-    out.certifications = csvToArray(out.certifications);
-  }
+  if (out.certifications !== undefined) out.certifications = csvToArray(out.certifications);
 
-  // Defensive trims on common string fields
+  // Defensive trims
   const stringKeys = ["name", "email", "phone", "bio", "photoUrl", "avatarUrl", "username", "role"];
   for (const k of stringKeys) {
     if (typeof out[k] === "string") out[k] = out[k].trim();
@@ -71,6 +56,33 @@ function normalizePatch(patch) {
   return out;
 }
 
+/** Allow only your own Cloudinary URLs when saving avatars */
+function isAllowedCloudinaryUrl(urlStr) {
+  try {
+    const u = new URL(String(urlStr).trim());
+
+    // Allow res.cloudinary.com and sharded hosts like res-1.cloudinary.com
+    if (!/^res(\-\d+)?\.cloudinary\.com$/i.test(u.hostname)) return false;
+
+    // Expected path: /<cloud_name>/image/upload/...
+    const parts = u.pathname.split('/').filter(Boolean);
+    if (parts.length < 3) return false;
+
+    const [cloudFromUrl, resourceType, deliveryType] = parts;
+    if (resourceType !== 'image' || deliveryType !== 'upload') return false;
+
+    // Compare with env; if env missing, fail fast
+    const cn = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+    if (!cn) return false;
+
+    return cloudFromUrl === cn;
+  } catch {
+    return false;
+  }
+}
+
+
+// ----------------------------- CRUD & Profile ---------------------------
 
 export async function getUserById(req, res) {
   try {
@@ -90,7 +102,6 @@ export async function listUsers(req, res) {
     const filter = {};
     if (req.query.role) {
       const norm = String(req.query.role).toLowerCase().trim();
-      // Accept synonyms: sitter → babysitter
       filter.role = ["sitter", "sitters"].includes(norm) ? "babysitter" : norm;
     }
     const users = await User.find(filter)
@@ -104,10 +115,9 @@ export async function listUsers(req, res) {
   }
 }
 
-
 export const getMe = async (req, res) => {
   try {
-      const user = await User.findById(req.user.id).select("-password -__v");
+    const user = await User.findById(req.user.id).select("-password -__v");
     if (!user) return res.status(404).json({ message: "User not found" });
     return res.json(user);
   } catch (err) {
@@ -117,19 +127,16 @@ export const getMe = async (req, res) => {
   }
 };
 
-
 export async function updateUserById(req, res) {
   try {
     const { id } = req.params;
 
     // Basic permission: user can update himself; admins can update others
     if (req.user?.id !== id && req.user?.role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "Forbidden: cannot update another user" });
+      return res.status(403).json({ error: "Forbidden: cannot update another user" });
     }
 
-    // Whitelist fields we allow to be updated via this endpoint
+    // Whitelist of updatable fields
     const allowed = [
       "name",
       "username",
@@ -142,6 +149,7 @@ export async function updateUserById(req, res) {
       "certifications",
       "age",
       "photoUrl",
+      "avatar",       // alias (client may send 'avatar')
       "bio",
       "languages",
       "dietary",
@@ -155,6 +163,13 @@ export async function updateUserById(req, res) {
     }
     const patch = normalizePatch(rawPatch);
 
+    // Map alias 'avatar' -> 'photoUrl'
+    if (patch.avatar && !patch.photoUrl) patch.photoUrl = patch.avatar;
+
+    // Validate Cloudinary URL for photoUrl (if provided)
+    if (patch.photoUrl && !isAllowedCloudinaryUrl(patch.photoUrl)) {
+      return res.status(400).json({ error: "Invalid avatar URL" });
+    }
 
     if (patch.hourlyRate != null && Number(patch.hourlyRate) < 0) {
       return res.status(400).json({ error: "hourlyRate cannot be negative" });
@@ -193,6 +208,7 @@ export const updateMe = async (req, res) => {
       "age",
       "bio",
       "photoUrl",
+      "avatar",     // alias accepted from client
       "languages",
       "dietary",
       "preferences"
@@ -203,6 +219,14 @@ export const updateMe = async (req, res) => {
       if (k in req.body) raw[k] = req.body[k];
     }
     const payload = normalizePatch(raw);
+
+    // Map alias 'avatar' -> 'photoUrl'
+    if (payload.avatar && !payload.photoUrl) payload.photoUrl = payload.avatar;
+
+    // Validate Cloudinary URL
+    if (payload.photoUrl && !isAllowedCloudinaryUrl(payload.photoUrl)) {
+      return res.status(400).json({ message: "Invalid avatar URL" });
+    }
 
     const updated = await User.findByIdAndUpdate(
       req.user.id,
@@ -216,63 +240,5 @@ export const updateMe = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Failed to update profile", details: err.message });
-  }
-};
-
-// ---------- Photo upload / delete ------------
-
-export async function uploadUserPhoto(req, res) {
-  try {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
-
-    const photoUrl = `/uploads/${req.file.filename}`;
-
-    // (Optional) Clean previous local photo if we manage it
-    const prev = await User.findById(userId).select("photoUrl").lean();
-    if (prev?.photoUrl && prev.photoUrl.includes("/uploads/")) {
-      const prevName = prev.photoUrl.split("/uploads/")[1];
-      if (prevName) deleteFileIfExists(path.join(uploadsDir, prevName));
-    }
-
-    const updated = await User.findByIdAndUpdate(
-      userId,
-      { photoUrl, avatarUrl: photoUrl },
-      { new: true }
-    ).select("-password -__v");
-
-    return res.status(200).json({ message: "Photo uploaded", photoUrl, user: updated });
-  } catch (e) {
-    return res.status(500).json({ message: "Upload failed" });
-  }
-}
-
-export const deleteMyPhoto = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).lean();
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (!user.photoUrl) {
-      return res.json({ message: "No photo to delete", user });
-    }
-
-    // Only delete local files we control (/uploads/)
-    if (user.photoUrl.includes("/uploads/")) {
-      const prevName = user.photoUrl.split("/uploads/")[1];
-      if (prevName) deleteFileIfExists(path.join(uploadsDir, prevName));
-    }
-
-    const updated = await User.findByIdAndUpdate(
-      req.user.id,
-      { $unset: { photoUrl: "", avatarUrl: "" } },
-      { new: true }
-    ).select("-password -__v");
-
-    return res.json({ message: "Photo removed", user: updated });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ message: "Failed to delete photo", details: err.message });
   }
 };

@@ -145,7 +145,7 @@ export default function ParentStep2() {
           {/* Title */}
           <View style={styles.titleBox}>
             <Text style={[styles.h1, { color: THEME.text }]}>Children information</Text>
-            <Text style={[styles.sub, { color: THEME.textMuted }]}>Step · Children (count & ages)</Text>
+            <Text style={[styles.sub, { color: THEME.textMuted }]}>Step 4 · Children (count & ages)</Text>
           </View>
 
           {/* Card */}

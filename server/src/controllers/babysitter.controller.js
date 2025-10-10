@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Review from "../models/Review.js";
 import mongoose from "mongoose";
+import{ Booking } from "../models/Booking.js";
 
 const toNum = (v) => {
   const n = Number(v);
@@ -275,9 +276,20 @@ export async function getSitterReviews(req, res) {
 
 /** POST /api/babysitters/:id/reviews */
 export async function addSitterReview(req, res) {
-  const { id } = req.params;
-  const { rating, comment, bookingId, reviewerId, authorName } = req.body;
+  const { id } = req.params; // sitterId
+  const { rating, comment, bookingId, authorName } = req.body || {};
+  const userId = req.user?.id;
+  const userRole = String(req.user?.role || "").toLowerCase();
 
+   if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (userRole !== "parent") {
+    return res.status(403).json({ error: "Only parents can post reviews" });
+  }
+  if (!bookingId) {
+    return res.status(400).json({ error: "bookingId is required" });
+  }
   if (!rating || rating < 1 || rating > 5) {
     return res.status(400).json({ error: "Rating must be between 1 and 5." });
   }
@@ -288,15 +300,34 @@ export async function addSitterReview(req, res) {
     return res.status(404).json({ error: "Babysitter not found." });
   }
 
-  // Create review respecting your schema fields
+  // Ensure booking belongs to this parent and sitter, is completed, and ended
+  const booking = await Booking.findOne({ _id: bookingId, parentId: userId, sitterId: id }).lean();
+  if (!booking) {
+    return res.status(404).json({ error: "Booking not found for this parent/sitter pair" });
+  }
+  if (booking.status !== "completed") {
+    return res.status(409).json({ error: "You can only review completed bookings" });
+  }
+  const end = new Date(booking.endISO || booking.endTime || 0);
+  if (Number.isNaN(end) || end >= new Date()) {
+    return res.status(409).json({ error: "You can only review an already ended booking" });
+  }
+  // Idempotence: ensure no existing review for this booking
+  const exists = await Review.exists({ bookingId });
+  if (exists) {
+    return res.status(409).json({ error: "A review already exists for this booking" });
+  }
+
+  // Create review, seal reviewer = authenticated parent
   const doc = await Review.create({
-    bookingId: bookingId || undefined,
-    reviewerId: reviewerId || undefined,
+    bookingId,
+    reviewerId: userId,
     revieweeId: id,
     rating,
     comment: (comment || "").trim(),
     authorName: (authorName || "Parent").trim(),
   });
+
 
   await recomputeSitterStats(id);
   return res.status(201).json({ data: doc });

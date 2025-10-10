@@ -60,7 +60,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async (payload) => {
-    // Throws on non-2xx so UI can handle per-field errors (409, etc.)
     const { data } = await api.post('/api/auth/signup', payload);
     await signIn(data.token, data.user);
     return data.user;

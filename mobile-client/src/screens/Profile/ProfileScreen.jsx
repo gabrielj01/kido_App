@@ -8,7 +8,7 @@ import {
   Alert,
   StyleSheet,
   RefreshControl,
-  I18nManager
+  I18nManager,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { colors } from "../../theme/color";
@@ -27,6 +27,18 @@ function v(value, fallback = "—") {
   return value ? String(value) : fallback;
 }
 
+// Turn experience (years/array/string/number) into a display string
+function fmtExperience(expYears, expAny) {
+  if (expYears != null && expYears !== "") {
+    const n = Number(expYears);
+    if (Number.isFinite(n)) return `${n} years`;
+  }
+  if (Array.isArray(expAny) && expAny.length) return expAny.join(", ");
+  if (typeof expAny === "number" && Number.isFinite(expAny)) return `${expAny} years`;
+  if (typeof expAny === "string" && expAny.trim()) return expAny.trim();
+  return "—";
+}
+
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user, setUser, logout } = useAuth();
@@ -37,7 +49,9 @@ export default function ProfileScreen() {
   const fetchProfile = useCallback(async () => {
     try {
       const { data } = await api.get("/api/users/me");
-      setUser?.(data);
+      // Accept both { user: {...} } and plain {...}
+      const payload = data?.user || data;
+      setUser?.(payload);
     } catch (err) {
       console.log("Profile fetch error:", err?.response?.data || err.message);
     }
@@ -75,10 +89,17 @@ export default function ProfileScreen() {
   const ratingAvg = user?.ratingAvg ?? user?.rating ?? 0;
   const ratingCount = user?.ratingCount ?? 0;
   const hourlyRate = user?.hourlyRate ?? user?.rate ?? null;
+
+  // Experience can be stored in multiple ways; make it robust
   const experienceYears = user?.experienceYears ?? null;
+  const experienceAny = user?.experience ?? null;
+  const experienceLabel = fmtExperience(experienceYears, experienceAny);
+
   const certifications = Array.isArray(user?.certifications)
     ? user.certifications
-    : [];
+    : (typeof user?.certifications === "string" && user.certifications.trim()
+        ? user.certifications.split(",").map((s) => s.trim()).filter(Boolean)
+        : []);
 
   // Parent extras
   const kids = Array.isArray(user?.kids) ? user.kids : [];
@@ -102,8 +123,7 @@ export default function ProfileScreen() {
     });
     items.push({
       label: "Rating",
-      value:
-        ratingCount > 0 ? `${Number(ratingAvg).toFixed(1)} (${ratingCount})` : "—",
+      value: ratingCount > 0 ? `${Number(ratingAvg).toFixed(1)} (${ratingCount})` : "—",
     });
     items.push({
       label: "Rate",
@@ -113,7 +133,7 @@ export default function ProfileScreen() {
   }, [user, ratingAvg, ratingCount, hourlyRate]);
 
   function onEditProfile() {
-    navigation.navigate("EditProfile"); 
+    navigation.navigate("EditProfile");
   }
 
   function onLogout() {
@@ -136,9 +156,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.container}>
         {/* Header Card */}
@@ -205,34 +223,16 @@ export default function ProfileScreen() {
         {isSitter ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Experience & Certifications</Text>
-            <InfoRow label="Experience" value={experienceYears ? `${experienceYears} years` : "—"} />
-            <ListRow
-              label="Certifications"
-              items={certifications}
-              emptyText="No certifications added"
-            />
-            {hourlyRate != null && (
-              <InfoRow label="Hourly rate" value={`${hourlyRate} ₪/h`} />
-            )}
+            <InfoRow label="Experience" value={experienceLabel} />
+            <ListRow label="Certifications" items={certifications} emptyText="No certifications added" />
+            {hourlyRate != null && <InfoRow label="Hourly rate" value={`${hourlyRate} ₪/h`} />}
           </View>
         ) : (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Preferences</Text>
             <InfoRow label="Children" value={kids.length ? `${kids.length}` : "—"} />
-            <ListRow
-              label="Dietary"
-              items={Array.isArray(dietary) ? dietary : []}
-              emptyText="No dietary restrictions"
-            />
-            <ListRow
-              label="Languages"
-              items={Array.isArray(languages) ? languages : []}
-              emptyText="No language preference"
-            />
-            <InfoRow
-              label="Preferred sitter"
-              value={preferredGender ? String(preferredGender) : "—"}
-            />
+            <ListRow label="Dietary" items={Array.isArray(dietary) ? dietary : []} emptyText="No dietary restrictions" />
+            <ListRow label="Languages" items={Array.isArray(languages) ? languages : []} emptyText="No language preference" />
           </View>
         )}
 
@@ -264,29 +264,28 @@ function ListRow({ label, items, emptyText = "—" }) {
   const isRTL = I18nManager.isRTL;
   return (
     <View
-       style={[
-         rowStyles.row,
-         {
-           alignItems: "flex-start",
-           justifyContent: "flex-start",
-           flexDirection: isRTL ? "row-reverse" : "row",
-         },
-       ]}
-     >
+      style={[
+        rowStyles.row,
+        {
+          alignItems: "flex-start",
+          justifyContent: "flex-start",
+          flexDirection: isRTL ? "row-reverse" : "row",
+        },
+      ]}
+    >
       <Text style={rowStyles.label}>{label}</Text>
       {has ? (
         <View
-           style={{
-             // Keep chips visually starting from the LEFT
-             flex: 1,
-             flexDirection: isRTL ? "row-reverse" : "row",
-             flexWrap: "wrap",
-             justifyContent: "flex-start",
-             alignItems: "flex-start",
-             alignContent: "flex-start",
-             gap: 8,
-           }}
-         >
+          style={{
+            flex: 1,
+            flexDirection: isRTL ? "row-reverse" : "row",
+            flexWrap: "wrap",
+            justifyContent: "flex-start",
+            alignItems: "flex-start",
+            alignContent: "flex-start",
+            gap: 8,
+          }}
+        >
           {items.map((it, idx) => (
             <View
               key={`${String(it)}-${idx}`}

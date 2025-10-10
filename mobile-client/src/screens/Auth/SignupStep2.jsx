@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef} from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,11 @@ import {
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { GOOGLE_PLACES_API_KEY } from '../../config';
 
-// --- Optional theme import with safe fallback (keeps screen robust if file missing)
+// --- Optional theme import with safe fallback (match your file name: theme/color.js) ---
 let importedDefault, importedNS;
 try {
-  importedDefault = require('../../theme/colors').default;
-  importedNS = require('../../theme/colors');
+  importedDefault = require('../../theme/color').default;
+  importedNS = require('../../theme/color');
 } catch (_) {
   importedDefault = null;
   importedNS = {};
@@ -27,7 +27,8 @@ const importedColors = importedNS?.colors || importedDefault || importedNS?.defa
 
 export default function SignupStep2({ navigation, route }) {
   const placesRef = useRef(null);
-  const { name, email, password, role = 'parent' } = route?.params || {};
+
+  const { name, email, username, password, role = 'parent', phone, photoUrl } = route?.params || {};
 
   // --- Initial values from route if user went back/forward
   const initialAddress = route?.params?.addressData?.address ?? route?.params?.address ?? '';
@@ -46,8 +47,8 @@ export default function SignupStep2({ navigation, route }) {
   // --- Theme (merged with optional external theme)
   const THEME = useMemo(
     () => ({
-      primary: importedColors?.primary ?? '#FF7A59',    // playful orange
-      secondary: importedColors?.secondary ?? '#4ECDC4',// teal accent
+      primary: importedColors?.primary ?? '#FF7A59',
+      secondary: importedColors?.secondary ?? '#4ECDC4',
       bg: importedColors?.bg ?? '#F7F9FC',
       card: importedColors?.card ?? '#FFFFFF',
       text: importedColors?.textDark ?? '#1F2D3D',
@@ -77,11 +78,17 @@ export default function SignupStep2({ navigation, route }) {
   const onNext = async () => {
     try {
       setSubmitting(true);
+
+      // Keep everything we already have, then add this step's data
       const base = {
         name,
         email,
+        username,
         password,
         role,
+        phone,
+        // propagate the profile photo if set in previous step
+        ...(photoUrl ? { photoUrl } : {}),
         addressData: {
           address: address?.trim(),
           latitude,
@@ -107,27 +114,29 @@ export default function SignupStep2({ navigation, route }) {
     navigation.navigate('SignupStep1', {
       name,
       email,
+      username,
       password,
       role,
+      phone,
     });
   };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: THEME.bg }]}>
-      {/* Decorative header blobs (no extra deps) */}
+      {/* Decorative header blobs */}
       <View style={styles.headerWrap} pointerEvents="none">
         <View style={[styles.blob, { backgroundColor: THEME.primary, top: -70, left: -50, opacity: 0.18 }]} />
         <View style={[styles.blob, { backgroundColor: THEME.secondary, top: -10, right: -60, width: 220, height: 220, opacity: 0.22 }]} />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        {/* ✅ No ScrollView / FlatList parent to avoid VirtualizedList nesting & remounts */}
+        {/* No ScrollView wrapper around Places list to avoid remount issues */}
         <View style={{ paddingBottom: 16 }}>
           {/* Title */}
           <View style={styles.titleBox}>
             <Text style={[styles.h1, { color: THEME.text }]}>Your address</Text>
             <Text style={[styles.sub, { color: THEME.textMuted }]}>
-              Step 2 · Location & (for sitters) hourly rate
+              Step 3 · Location & (for sitters) hourly rate
             </Text>
           </View>
 
@@ -145,9 +154,7 @@ export default function SignupStep2({ navigation, route }) {
                   minLength={2}
                   debounce={250}
                   enablePoweredByContainer={false}
-                  keyboardShouldPersistTaps='always'
-
-                  // ✅ Defensive defaults to avoid ".filter of undefined" inside the lib
+                  keyboardShouldPersistTaps="always"
                   predefinedPlaces={[]}
                   predefinedPlacesAlwaysVisible={false}
                   filterReverseGeocodingByTypes={[]}
@@ -170,7 +177,7 @@ export default function SignupStep2({ navigation, route }) {
                   query={{
                     key: GOOGLE_PLACES_API_KEY,
                     language: 'en',
-                    components: 'country:il', // Israel-first results
+                    components: 'country:il',
                   }}
                   styles={{
                     container: { flex: 0, zIndex: 10 },
@@ -225,10 +232,7 @@ export default function SignupStep2({ navigation, route }) {
                         setLongitude(null);
                       }
                     }}
-                    style={[
-                      styles.input,
-                      { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' },
-                    ]}
+                    style={[styles.input, { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' }]}
                     placeholderTextColor="#A8B3C2"
                     returnKeyType="done"
                   />
@@ -238,28 +242,6 @@ export default function SignupStep2({ navigation, route }) {
                 </>
               )}
             </View>
-
-            {/* Babysitter-only: hourly rate */}
-            {role === 'babysitter' && (
-              <View style={styles.field}>
-                <Text style={[styles.label, { color: THEME.textMuted }]}>Hourly rate (₪/h)</Text>
-                <TextInput
-                  value={String(hourlyRate)}
-                  onChangeText={(t) => setHourlyRate(t.replace(/[^\d.]/g, ''))}
-                  keyboardType="decimal-pad"
-                  placeholder="e.g. 45"
-                  placeholderTextColor="#A8B3C2"
-                  style={[
-                    styles.input,
-                    { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' },
-                  ]}
-                  returnKeyType="done"
-                />
-                <Text style={{ color: THEME.textMuted, fontSize: 11, marginTop: 6 }}>
-                  You can update your rate later from your profile.
-                </Text>
-              </View>
-            )}
 
             {/* Helper note */}
             <Text style={[styles.note, { color: THEME.textMuted, marginTop: 8 }]}>

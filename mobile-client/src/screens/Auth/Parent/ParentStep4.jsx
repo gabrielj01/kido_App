@@ -77,11 +77,12 @@ export default function ParentStep4() {
     navigation.navigate('Signup', {
       ...route.params,
       dietaryRestrictions: dietary.trim(),
-      sitterPreferences: prefs.trim(),              // keeps backward compatibility
+      sitterPreferences: prefs.trim(),
       sitterGenderPreference: gender,
       sitterLanguages: languages,
     });
   };
+
 
   const goBack = () => {
     navigation.navigate('ParentStep3', {
@@ -121,7 +122,7 @@ export default function ParentStep4() {
           <View style={styles.titleBox}>
             <Text style={[styles.h1, { color: THEME.text }]}>Diet & sitter preferences</Text>
             <Text style={[styles.sub, { color: THEME.textMuted }]}>
-              Step · Dietary restrictions & babysitter preferences
+              Step 6 · Dietary restrictions & babysitter preferences
             </Text>
           </View>
 

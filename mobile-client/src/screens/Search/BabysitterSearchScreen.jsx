@@ -339,7 +339,7 @@ export default function BabysitterSearchScreen() {
   };
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['']}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         {/* Colorful hero banner */}
         <LinearGradient

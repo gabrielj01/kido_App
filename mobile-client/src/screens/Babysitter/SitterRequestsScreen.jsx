@@ -5,10 +5,10 @@ import ConfirmModal from "../../components/ConfirmModal";
 import { colors } from "../../theme/color";
 import { emit } from "../../contexts/EventBus";
 import Swipeable from "react-native-gesture-handler/Swipeable";
-import  Ionicons  from "@expo/vector-icons/Ionicons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { hideBookingById } from "../../api/bookingApi";
 
-const FILTERS = ["pending", "accepted", "declined", "cancelled", "completed"];
+const FILTERS = ["all", "pending", "accepted", "declined", "cancelled", "completed"];
 
 function Badge({ label }) {
   const map = {
@@ -47,30 +47,30 @@ function canHide(item) {
 function Row({ item, onAccept, onDecline, onHide }) {
   const parent = typeof item.parentId === "object" ? item.parentId : null;
 
- const renderRight = (_progress, _dragX) => (
-   <View style={{ width: 92, height: "100%", paddingVertical: 0, paddingLeft: 8 }}>
-     <Pressable
-       onPress={() => onHide(item)}
-       style={{
-         flex: 1,
-         height: "100%",
-         backgroundColor: "#E53935",
-         justifyContent: "center",
-         alignItems: "center",
-         borderRadius: 14,
-         overflow: "hidden",
-         elevation: 2,
-         shadowColor: "#000",
-         shadowOpacity: 0.15,
-         shadowRadius: 6,
-         shadowOffset: { width: 0, height: 2 },
-      }}
-    >
-       <Ionicons name="trash-outline" size={22} color="#fff" />
-       <Text style={{ color: "#fff", fontWeight: "800", marginTop: 4 }}>Delete</Text>
-     </Pressable>
-   </View>
- );
+  const renderRight = (_progress, _dragX) => (
+    <View style={{ width: 92, height: "100%", paddingVertical: 0, paddingLeft: 8 }}>
+      <Pressable
+        onPress={() => onHide(item)}
+        style={{
+          flex: 1,
+          height: "100%",
+          backgroundColor: "#E53935",
+          justifyContent: "center",
+          alignItems: "center",
+          borderRadius: 14,
+          overflow: "hidden",
+          elevation: 2,
+          shadowColor: "#000",
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 2 },
+        }}
+      >
+        <Ionicons name="trash-outline" size={22} color="#fff" />
+        <Text style={{ color: "#fff", fontWeight: "800", marginTop: 4 }}>Delete</Text>
+      </Pressable>
+    </View>
+  );
 
   const CardInner = (
     <View style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 14 }}>
@@ -118,7 +118,7 @@ function Row({ item, onAccept, onDecline, onHide }) {
 }
 
 export default function SitterRequestsScreen() {
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,7 +127,7 @@ export default function SitterRequestsScreen() {
 
   const fetchList = useCallback(async (st) => {
     const params = { role: "sitter" };
-    if (st) params.status = st;
+    if (st && st !== "all") params.status = st;
     const res = await api.get("/api/bookings", { params });
     const payload = res.data;
     return Array.isArray(payload) ? payload : payload?.data || [];
@@ -146,7 +146,9 @@ export default function SitterRequestsScreen() {
     }
   }, [fetchList, filter]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = useCallback(async () => {
     try {
@@ -176,45 +178,51 @@ export default function SitterRequestsScreen() {
     }
   }, [confirm, load]);
 
-  const onHide = useCallback(async (b) => {
-    try {
-      // optimistic remove
-      setRows((prev) => prev.filter((x) => x._id !== b._id));
-      emit("bookings:changed");
-      await hideBookingById(b._id);
-      load();
-    } catch (e) {
-      await load();
-      const msg = e?.response?.data?.error || e.message || "Failed to remove booking";
-      Alert.alert("Error", msg);
-    }
-  }, [load]);
+  const onHide = useCallback(
+    async (b) => {
+      try {
+        // optimistic remove
+        setRows((prev) => prev.filter((x) => x._id !== b._id));
+        emit("bookings:changed");
+        await hideBookingById(b._id);
+        load();
+      } catch (e) {
+        await load();
+        const msg = e?.response?.data?.error || e.message || "Failed to remove booking";
+        Alert.alert("Error", msg);
+      }
+    },
+    [load]
+  );
 
-  const Tabs = useMemo(() => (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-      {FILTERS.map((opt) => {
-        const active = filter === opt;
-        return (
-          <Pressable
-            key={opt}
-            onPress={() => setFilter(opt)}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: active ? colors.primary : colors.border,
-              backgroundColor: active ? colors.primary : "transparent",
-            }}
-          >
-            <Text style={{ color: active ? "#fff" : colors.textDark, fontWeight: "700" }}>
-              {opt[0].toUpperCase() + opt.slice(1)}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  ), [filter]);
+  const Tabs = useMemo(
+    () => (
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        {FILTERS.map((opt) => {
+          const active = filter === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => setFilter(opt)}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: active ? colors.primary : colors.border,
+                backgroundColor: active ? colors.primary : "transparent",
+              }}
+            >
+              <Text style={{ color: active ? "#fff" : colors.textDark, fontWeight: "700" }}>
+                {opt[0].toUpperCase() + opt.slice(1)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    ),
+    [filter]
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
@@ -232,22 +240,42 @@ export default function SitterRequestsScreen() {
           <Text style={{ marginTop: 8, color: colors.textLight }}>Loading…</Text>
         </View>
       ) : rows.length === 0 ? (
-        <View style={{
-          marginTop: 24, backgroundColor: colors.card, borderColor: colors.border,
-          borderWidth: 1, borderRadius: 12, padding: 14,
-        }}>
+        <View
+          style={{
+            marginTop: 24,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderWidth: 1,
+            borderRadius: 12,
+            padding: 14,
+          }}
+        >
           <Text style={{ color: colors.textDark, fontWeight: "700" }}>No requests</Text>
           <Text style={{ color: colors.textLight, marginTop: 4 }}>
             New booking requests will appear here.
           </Text>
+          {/* Quick action to reset to 'All' when empty on a filtered view */}
+          {filter !== "all" && (
+            <Pressable
+              onPress={() => setFilter("all")}
+              style={{
+                marginTop: 12,
+                alignSelf: "flex-start",
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: colors.primary,
+              }}
+            >
+              <Text style={{ color: "#000", fontWeight: "800" }}>Show All</Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <FlatList
           data={rows}
           keyExtractor={(it) => it._id}
-          renderItem={({ item }) => (
-            <Row item={item} onAccept={onAccept} onDecline={onDecline} onHide={onHide} />
-          )}
+          renderItem={({ item }) => <Row item={item} onAccept={onAccept} onDecline={onDecline} onHide={onHide} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingBottom: 24 }}
         />

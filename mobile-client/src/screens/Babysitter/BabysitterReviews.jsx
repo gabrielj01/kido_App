@@ -14,11 +14,25 @@ export default function BabysitterReviewsScreen() {
   const route = useRoute();
   const { user } = useAuth();
 
-  const sitterIdFromParams = route?.params?.sitterId;
-  const sitterNameFromParams = route?.params?.sitterName;
-
-  const sitterId = sitterIdFromParams || user?._id || user?.id || null;
-  const sitterName = sitterNameFromParams || user?.name || "";
+  const sitterIdFromParams =
+     route?.params?.babysitterId ??
+     route?.params?.sitterId ??
+     route?.params?.userId ??
+     route?.params?.forUserId ??
+     route?.params?.sitter?._id ??
+     route?.params?.babysitter?._id ??
+     null;
+ 
+   const sitterNameFromParams =
+     route?.params?.sitterName ??
+     route?.params?.babysitterName ??
+     route?.params?.name ??
+     route?.params?.sitter?.name ??
+     route?.params?.babysitter?.name ??
+     "";
+ 
+   const sitterId = sitterIdFromParams ? String(sitterIdFromParams) : (user?._id || user?.id || null);
+   const sitterName = sitterNameFromParams || user?.name || "";
 
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -67,7 +81,10 @@ export default function BabysitterReviewsScreen() {
           {new Date(item.createdAt || item.date || Date.now()).toLocaleDateString()}
         </Text>
       </View>
-      <RatingStars rating={item.rating || 0} count={0} />
+        <RatingStars
+          rating={Number(item.rating) || 0}
+          count={Number(item.rating) || undefined}
+        />
       {!!item.comment && (
         <Text style={{ marginTop: 8, color: colors.textDark, lineHeight: 20 }}>
           {item.comment}
@@ -77,7 +94,7 @@ export default function BabysitterReviewsScreen() {
   );
 
   return (
-    <Screen edges={["top"]}>
+    <Screen edges={[""]}>
     <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
       {/* Header */}
       <View style={{ marginBottom: 14 }}>
@@ -130,8 +147,8 @@ export default function BabysitterReviewsScreen() {
         onPress={() => navigation.goBack()}
         style={{
           position: "absolute",
-          right: 16,
-          bottom: 16,
+          right: 30,
+          bottom:30,
           paddingHorizontal: 16,
           paddingVertical: 12,
           backgroundColor: colors.primary,

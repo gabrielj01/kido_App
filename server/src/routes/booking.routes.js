@@ -8,6 +8,7 @@ import {
   hideBooking,
   getUpcoming,
   completeBooking,
+  getPendingReviews,
 } from "../controllers/booking.controller.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 
@@ -16,6 +17,7 @@ const router = Router();
 router.post("/", authMiddleware, createBooking);
 router.get("/", authMiddleware, listBookings);
 router.get("/upcoming", authMiddleware, getUpcoming);
+router.get("/pending-reviews", authMiddleware, getPendingReviews);
 router.get("/:id", authMiddleware, getBookingById);
 router.put("/:id/cancel", authMiddleware, cancelBooking);
 router.patch("/:id/decision", authMiddleware, sitterDecision);

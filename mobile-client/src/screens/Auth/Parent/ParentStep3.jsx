@@ -82,7 +82,7 @@ export default function ParentStep3() {
           <View style={styles.titleBox}>
             <Text style={[styles.h1, { color: THEME.text }]}>Special needs</Text>
             <Text style={[styles.sub, { color: THEME.textMuted }]}>
-              Step  · Allergies, routines & specific care
+              Step 5 · Allergies, routines & specific care
             </Text>
           </View>
 
@@ -92,7 +92,7 @@ export default function ParentStep3() {
             <View style={styles.field}>
               <Text style={[styles.label, { color: THEME.textMuted }]}>Details</Text>
               <TextInput
-                placeholder="Allergies (e.g., peanuts), dietary restrictions (kosher level), nap routines, medications, pickup/drop-off notes…"
+                placeholder="Allergies (e.g., peanuts), nap routines, medications, pickup/drop-off notes…"
                 value={needs}
                 onChangeText={setNeeds}
                 multiline

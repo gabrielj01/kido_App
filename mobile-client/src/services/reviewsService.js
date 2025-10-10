@@ -1,89 +1,109 @@
-// Reviews API helpers (robust to two possible endpoints)
 import api from "../api/client";
 
-/** Fetch reviews for a given babysitter */
+/** Normalize various backend shapes into { items, meta } */
+function normalizeReviewsResponse(payload) {
+  // Accept shapes:
+  // - { data: { items, meta } }
+  // - { data: [...] }
+  // - { items: [...] }
+  // - [...]
+  const root = payload?.data ?? payload ?? {};
+  if (Array.isArray(root)) {
+    return { items: root, meta: { page: 1, limit: root.length, total: root.length } };
+  }
+  if (Array.isArray(root.items)) {
+    return {
+      items: root.items,
+      meta: root.meta || { page: 1, limit: root.items.length, total: root.items.length },
+    };
+  }
+  if (Array.isArray(root.data)) {
+    return { items: root.data, meta: { page: 1, limit: root.data.length, total: root.data.length } };
+  }
+  return { items: [], meta: { page: 1, limit: 0, total: 0 } };
+}
+
+/** Fetch reviews list for a given babysitter (with fallback to /api/reviews?sitterId=...) */
 export async function fetchBabysitterReviews(sitterId, { page = 1, limit = 20 } = {}) {
-  // Try nested route first, fallback to generic collection
+  const id = String(sitterId);
   try {
-    const res = await api.get(`/api/babysitters/${sitterId}/reviews`, { params: { page, limit } });
+    const res = await api.get(`/api/babysitters/${id}/reviews`, { params: { page, limit } });
     return normalizeReviewsResponse(res.data);
-  } catch (e) {
+  } catch {
     const res2 = await api.get(`/api/reviews`, { params: { sitterId, page, limit } });
     return normalizeReviewsResponse(res2.data);
   }
 }
 
-/** Optional: compute an aggregate if backend doesn't provide it */
-export function computeReviewStats(reviews = []) {
-  if (!reviews.length) return { avg: 0, count: 0, dist: [0,0,0,0,0] };
-  const dist = [0,0,0,0,0];
-  let sum = 0;
-  for (const r of reviews) {
-    const s = Math.min(5, Math.max(1, Math.round(r.rating || 0)));
-    dist[s - 1] += 1;
-    sum += r.rating || 0;
-  }
-  return { avg: +(sum / reviews.length).toFixed(1), count: reviews.length, dist };
+/** Create a review for a sitter */
+export async function addSitterReview(sitterId, body) {
+  // Body should contain: { rating, comment?, bookingId (required), authorName? }
+  const res = await api.post(`/api/babysitters/${String(sitterId)}/reviews`, body);
+  return res.data?.data || res.data;
 }
 
-/** Normalize shape coming from either endpoint */
-function normalizeReviewsResponse(payload) {
-  const data = payload?.data ?? payload;
-  const items = data?.items ?? data?.reviews ?? (Array.isArray(data) ? data : []);
-  const meta = data?.meta ?? {};
-  return { items, meta };
-}
-
-export async function addSitterReview(sitterId, payload) {
-  // payload: { rating:number(1..5), comment?:string, bookingId?:string, authorName?:string }
-  const res = await api.post(`/api/babysitters/${sitterId}/reviews`, payload);
-  return res.data?.data ?? res.data;
-}
-
-export async function fetchEndedUnreviewedBookings() {
-  let bookings = [];
-  // Try a dedicated endpoint first if present
-  try {
-    const r = await api.get("/api/bookings/pending-reviews");
-    const data = r.data?.data ?? r.data;
-    if (Array.isArray(data)) {
-      return data
-        .map(b => ({
-          bookingId: b.bookingId || b._id || b.id,
-          sitterId:  b.sitterId  || b.babysitterId || b?.babysitter?._id,
-          sitterName: b.sitterName || b?.babysitter?.name || "the sitter",
-        }))
-        .filter(x => x.bookingId && x.sitterId);
-    }
-  } catch (_) {}
-
-  // Fallbacks: /api/bookings/me -> /api/booking/me
-  try {
-    const r = await api.get("/api/bookings/me");
-    bookings = r.data?.data ?? r.data ?? [];
-  } catch (_) {
-    const r2 = await api.get("/api/booking/me");
-    bookings = r2.data?.data ?? r2.data ?? [];
+/** Optional local aggregate computation from a reviews array */
+export function computeReviewStats(reviewsLike) {
+  // Accept shapes: raw array OR { items } OR { data: { items } }
+  let items = [];
+  if (Array.isArray(reviewsLike)) {
+    items = reviewsLike;
+  } else if (Array.isArray(reviewsLike?.items)) {
+    items = reviewsLike.items;
+  } else if (Array.isArray(reviewsLike?.data?.items)) {
+    items = reviewsLike.data.items;
+  } else if (Array.isArray(reviewsLike?.data)) {
+    items = reviewsLike.data;
   }
 
-  const now = Date.now();
-  return bookings
-    .filter((b) => {
-      const end = new Date(b.endTime || b.end || b.endAt || 0).getTime();
-      const ended = end && end < now;
-      const canceled =
-        Boolean(b.canceled) ||
-        b.status === "canceled" ||
-        b.status === "cancelled";
-      const reviewed =
-        Boolean(b.reviewId) || Boolean(b.reviewed) || Boolean(b.hasReview);
-      return ended && !canceled && !reviewed;
-    })
-    .map((b) => ({
-      bookingId: b._id || b.id,
-      sitterId: b.babysitterId || b.sitterId || b?.babysitter?._id,
-      sitterName: b?.babysitter?.name || b?.sitter?.name || b?.babysitterName || "the sitter",
-    }))
+  const count = items.length;
+  const sum = items.reduce((acc, r) => acc + (Number(r?.rating) || 0), 0);
+  const avg = count ? +(sum / count).toFixed(2) : 0;
+  return { avg, count, sum, items };
+}
+
+/** Map a raw booking to a "candidate" shape used by the UI */
+function mapBookingToCandidate(b) {
+  return {
+    bookingId: b._id || b.id,
+    sitterId: b.babysitterId || b.sitterId || b?.babysitter?._id,
+    sitterName: b?.babysitter?.name || b?.sitter?.name || b?.babysitterName || "the sitter",
+  };
+}
+
+/** True if a booking ended in the past, is completed, not cancelled, and not reviewed */
+function isEndedAndUnreviewed(b) {
+  const end = new Date(b.endISO || b.endTime || 0);
+  const ended = !Number.isNaN(end) && end < new Date();
+  const cancelled = b.status === "canceled" || b.status === "cancelled";
+  const reviewed = Boolean(b.reviewId) || Boolean(b.reviewed) || Boolean(b.hasReview);
+  return ended && !cancelled && !reviewed && b.status === "completed";
+}
+
+/** Fallback: derive review candidates from a generic bookings list */
+export function findEndedUnreviewedFromList(bookings = []) {
+  return (bookings || [])
+    .filter(isEndedAndUnreviewed)
+    .map(mapBookingToCandidate)
     .filter((x) => x.bookingId && x.sitterId);
 }
 
+/** Preferred: ask backend for pending review candidates */
+export async function fetchPendingReviewCandidates() {
+  try {
+    const res = await api.get(`/api/bookings/pending-reviews`);
+    const arr = Array.isArray(res.data?.data) ? res.data.data : [];
+    return arr
+      .map((x) => ({
+        bookingId: x.bookingId || x.id,
+        sitterId: x.sitterId || x.revieweeId,
+        sitterName: x.sitterName || "the sitter",
+      }))
+      .filter((x) => x.bookingId && x.sitterId);
+  } catch {
+    // Fallback: fetch my bookings and compute client-side
+    const res2 = await api.get(`/api/bookings`, { params: { role: "parent" } });
+    const list = Array.isArray(res2.data?.data) ? res2.data.data : (Array.isArray(res2.data) ? res2.data : []);
+    return findEndedUnreviewedFromList(list);
+  }
+}

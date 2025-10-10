@@ -1,5 +1,7 @@
 import api from "../api/client";
+import { CLOUDINARY } from "../config";
 
+/** Normalize boolean availability responses coming from various endpoints */
 function normalizeAvailable(data) {
   if (typeof data?.available === "boolean") return data.available;
   if (typeof data?.exists === "boolean") return !data.exists;
@@ -21,20 +23,53 @@ export async function checkUsernameAvailability(username) {
   return normalizeAvailable(data);
 }
 
-// Upload current user's profile photo
-export async function uploadPhoto(formData) {
-  return api.post("/api/users/me/photo", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+/** Best-effort mime detection from local file uri */
+function guessMime(uri) {
+  if (!uri) return "image/jpeg";
+  const lower = uri.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".heic")) return "image/heic";
+  if (lower.endsWith(".heif")) return "image/heif";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  return "image/jpeg";
 }
 
-// Update current user's profile
+/**
+ * Upload a local image (file://) directly to Cloudinary using the unsigned preset.
+ * Returns the CDN secure_url that you can store in your user profile.
+ */
+export async function uploadAvatarToCloudinary(localUri) {
+  const file = {
+    uri: localUri,
+    type: guessMime(localUri),
+    name: `avatar_${Date.now()}`,
+  };
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("upload_preset", CLOUDINARY.UPLOAD_PRESET);
+  form.append("folder", CLOUDINARY.FOLDER);
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY.CLOUD_NAME}/image/upload`;
+
+  const res = await fetch(endpoint, { method: "POST", body: form });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Cloudinary upload failed: ${text}`);
+  }
+  const json = await res.json();
+  return json.secure_url; // store this in your profile's photoUrl
+}
+
+/** Update current user's profile on your backend */
 export async function updateProfile(payload) {
+  // Keep the same signature as before (axios response) to avoid breaking callers
   return api.put("/api/users/me", payload);
 }
 
+/** Get current user's profile */
 export async function getMyProfile() {
   const { data } = await api.get("/api/users/me");
   return data;
 }
-

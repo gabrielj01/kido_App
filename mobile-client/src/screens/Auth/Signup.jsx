@@ -14,7 +14,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import { AuthContext } from '../../contexts/AuthContext';
 
-
+// Optional theme import with safe fallback
 let modAdef, modAns;
 try { modAdef = require('../../theme/colors').default; modAns = require('../../theme/colors'); } catch (_) {}
 const importedColors = modAns?.colors || modAdef || modAns?.default || null;
@@ -28,16 +28,27 @@ const LANGUAGE_LABELS = {
   es: 'Spanish',
 };
 
+// Local helpers (kept here to avoid cross-file coupling)
+const digitsOnly = (v) => String(v || '').replace(/[^\d+]/g, '');
+const toE164IL = (v) => {
+  const s = digitsOnly(v);
+  if (s.startsWith('+972')) return s;
+  const d = s.replace(/\D/g, '');
+  if (d.startsWith('972')) return '+972' + d.slice(3);
+  if (d.startsWith('0')) return '+972' + d.slice(1);
+  return s || '';
+};
+
 export default function Signup({ navigation }) {
   const route = useRoute();
   const { signup } = useContext(AuthContext);
   const [submitting, setSubmitting] = useState(false);
 
-  // --- THEME
+  // THEME
   const THEME = useMemo(
     () => ({
-      primary: importedColors?.primary ?? '#FF7A59',    // playful orange
-      secondary: importedColors?.secondary ?? '#4ECDC4',// teal accent
+      primary: importedColors?.primary ?? '#FF7A59',     // playful orange
+      secondary: importedColors?.secondary ?? '#4ECDC4', // teal accent
       bg: importedColors?.bg ?? '#F7F9FC',
       card: importedColors?.card ?? '#FFFFFF',
       text: importedColors?.textDark ?? '#1F2D3D',
@@ -50,6 +61,8 @@ export default function Signup({ navigation }) {
 
   const p = route?.params || {};
   const role = p?.role || 'parent';
+
+  // Address (may come from Step 2 as addressData or flat props)
   const address = p?.addressData?.address ?? p?.address ?? '';
   const latitude = p?.addressData?.latitude ?? p?.latitude ?? null;
   const longitude = p?.addressData?.longitude ?? p?.longitude ?? null;
@@ -71,7 +84,15 @@ export default function Signup({ navigation }) {
   const age = p?.age;
   const photoUrl = p?.photoUrl;
 
-  // --- Helpers
+  // NEW: we also capture work radius & availability if provided by sitter steps
+  const workRadiusKm =
+    p?.workRadiusKm != null
+      ? Number(p.workRadiusKm)
+      : (p?.workArea != null ? Number(p.workArea) : undefined); // compatibility if previous step used workArea label
+
+  const availability = Array.isArray(p?.availability) ? p.availability : undefined;
+
+  // Helpers for rendering
   const toReadable = (v) => {
     if (v == null) return '';
     if (Array.isArray(v)) return v.join(', ');
@@ -84,12 +105,13 @@ export default function Signup({ navigation }) {
   const fmtGender = (g) =>
     g === 'female' ? 'Female' : g === 'male' ? 'Male' : g === 'any' ? 'Any' : toReadable(g);
 
+  // Review sections
   const commonRows = [
     { label: 'Name', value: p?.name },
     { label: 'Email', value: (p?.email || '').toLowerCase() },
     p?.username ? { label: 'Username', value: String(p.username).toLowerCase() } : null,
     { label: 'Role', value: role },
-    address ? { label: 'Address', value: address } : null,
+    p?.phone ? { label: 'Phone', value: p.phone } : null,
   ].filter(Boolean);
 
   const parentRows =
@@ -97,7 +119,7 @@ export default function Signup({ navigation }) {
       ? [
           Number.isFinite(Number(numChildren)) ? { label: 'Number of children', value: String(numChildren) } : null,
           Array.isArray(childrenAges) && childrenAges.length
-            ? { label: 'Age(s) of each children ', value: childrenAges.join(', ') }
+            ? { label: 'Age(s) of each child', value: childrenAges.join(', ') }
             : null,
           needs ? { label: 'Special needs', value: needs } : null,
           dietaryRestrictions ? { label: 'Dietary restrictions', value: dietaryRestrictions } : null,
@@ -115,6 +137,7 @@ export default function Signup({ navigation }) {
     role === 'babysitter'
       ? [
           Number.isFinite(Number(hourlyRate)) ? { label: 'Hourly rate (₪/h)', value: String(hourlyRate) } : null,
+          Number.isFinite(Number(workRadiusKm)) ? { label: 'Work radius (km)', value: String(workRadiusKm) } : null, // NEW
           certifications ? { label: 'Certifications', value: toReadable(certifications) } : null,
           experience ? { label: 'Experience', value: toReadable(experience) } : null,
           age ? { label: 'Age', value: String(age) } : null,
@@ -153,23 +176,33 @@ export default function Signup({ navigation }) {
     );
   };
 
-  // --- Build clean payload (strip undefined/null)
+  // ---- Build clean payload (strip undefined/null/empty-string)
   const rawPayload = {
     name: p?.name,
     email: (p?.email || '').toLowerCase(),
     username: p?.username ? String(p.username).toLowerCase() : undefined,
     password: p?.password,
     role,
+    // phone is already normalized in Step1 but we keep it as-is
+    phone: p?.phone ? toE164IL(p.phone) : undefined,
+
+    // address
     address,
     latitude,
     longitude,
+
     // sitter
     hourlyRate: role === 'babysitter' ? Number(hourlyRate) : undefined,
+    workRadiusKm: role === 'babysitter'
+      ? (Number.isFinite(Number(workRadiusKm)) ? Number(workRadiusKm) : undefined)
+      : undefined, // NEW
     certifications,
     experience,
     age,
     bio,
     photoUrl,
+    availability, // NEW
+
     // parent
     numChildren,
     childrenAges,
@@ -179,6 +212,7 @@ export default function Signup({ navigation }) {
     sitterGenderPreference,
     sitterLanguages,
   };
+
   const payload = Object.keys(rawPayload).reduce((acc, k) => {
     const v = rawPayload[k];
     if (v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '')) {
@@ -186,7 +220,6 @@ export default function Signup({ navigation }) {
     }
     return acc;
   }, {});
-
 
   const onSubmit = async () => {
     try {
@@ -205,6 +238,10 @@ export default function Signup({ navigation }) {
         }
         if (field === 'username') {
           Alert.alert('Username already taken', 'Please choose another username.');
+          return;
+        }
+        if (field === 'phone') {
+          Alert.alert('Phone already in use', 'Please use a different phone number.');
           return;
         }
       }
@@ -240,7 +277,7 @@ export default function Signup({ navigation }) {
           <View style={styles.titleBox}>
             <Text style={[styles.h1, { color: THEME.text }]}>Review & Create Account</Text>
             <Text style={[styles.sub, { color: THEME.textMuted }]}>
-              Double-check your information before creating your account.
+              Review all your information before creating your account. (Don't worry you'll be able to modify the details after the subscription)
             </Text>
           </View>
 

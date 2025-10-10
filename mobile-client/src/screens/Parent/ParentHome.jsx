@@ -118,7 +118,7 @@ export default function ParentHome({ navigation }) {
   };
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['']}>
     <ScrollView
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}
@@ -190,26 +190,13 @@ export default function ParentHome({ navigation }) {
           label="Search"
           onPress={() => tryNavigate('Search')}
         />
-        <QuickAction
-          icon={<Ionicons name="chatbubbles" size={22} color={COLORS.text} />}
-          label="Requests"
-          onPress={() => tryNavigate('Requests')}
-        />
+
         <QuickAction
           icon={<MaterialIcons name="event-available" size={22} color={COLORS.text} />}
           label="Bookings"
           onPress={() => tryNavigate('Bookings')}
         />
-        <QuickAction
-          icon={<Ionicons name="heart" size={22} color={COLORS.text} />}
-          label="Favorites"
-          onPress={() => tryNavigate('Favorites')}
-        />
-        <QuickAction
-          icon={<FontAwesome5 name="map-marker-alt" size={19} color={COLORS.text} />}
-          label="Addresses"
-          onPress={() => tryNavigate('Addresses')}
-        />
+
         <QuickAction
           icon={<Ionicons name="person-circle" size={22} color={COLORS.text} />}
           label="Profile"
@@ -273,16 +260,6 @@ export default function ParentHome({ navigation }) {
       <Pressable style={styles.logoutBtn} onPress={logout}>
         <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
         <Text style={styles.logoutText}>Logout</Text>
-      </Pressable>
-
-      {/* DEV: force review modal */}
-      <Pressable
-        onLongPress={() =>
-          setPrompt({ bookingId: 'TEST123', sitterId: '<SITTER_ID>', sitterName: 'Noa Levi' })
-        }
-        style={{ alignSelf: 'center', marginTop: 10, padding: 8 }}
-      >
-        <Text style={{ color: '#888' }}>Long-press to FORCE review modal (DEV)</Text>
       </Pressable>
 
       <View style={{ height: 90 }} />

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -38,66 +38,7 @@ const toNum = (val) => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-function inferMime(uri = "") {
-  const lower = uri.toLowerCase();
-  if (lower.endsWith(".png")) return "image/png";
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-  if (lower.endsWith(".heic") || lower.endsWith(".heif")) return "image/heic";
-  return "image/jpeg";
-}
-
-function fileNameFromUri(uri = "", fallback = "avatar.jpg") {
-  try {
-    const parts = uri.split("/");
-    const last = parts[parts.length - 1] || fallback;
-    return last.includes(".") ? last : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getBaseUrl(api, cfg) {
-  return (
-    cfg?.API_URL ||
-    cfg?.API_BASE_URL ||
-    api?.default?.defaults?.baseURL ||
-    api?.api?.defaults?.baseURL ||
-    api?.client?.defaults?.baseURL ||
-    ""
-  );
-}
-
-function joinUrl(base, path) {
-  if (!base) return path;
-  try {
-    if (/^https?:\/\//i.test(path)) return path;
-    if (path.startsWith("/")) return `${base.replace(/\/+$/, "")}${path}`;
-    return `${base.replace(/\/+$/, "")}/${path}`;
-  } catch {
-    return path;
-  }
-}
-
-function resolveUploadedUrl(resp, api, cfg) {
-  const data = resp?.data?.data || resp?.data || resp || {};
-  const base = getBaseUrl(api, cfg);
-
-  let urlLike =
-    data.photoUrl || 
-    data.url ||
-    data.avatarUrl ||
-    data.path ||
-    data.filename ||
-    data.file ||
-    "";
-
-  if (!urlLike) return "";
-  if (/^https?:\/\//i.test(urlLike)) return urlLike;
-  if (urlLike.startsWith("/uploads/")) return joinUrl(base, urlLike);
-  if (urlLike.startsWith("uploads/")) return joinUrl(base, `/${urlLike}`);
-  if (!urlLike.includes("/")) return joinUrl(base, `/uploads/${urlLike}`);
-  return joinUrl(base, urlLike);
-}
+const pickPrefer = (a, b) => (a != null && a !== "" ? a : b);
 
 // --------------------------------- main ---------------------------------
 
@@ -111,10 +52,12 @@ export default function EditProfileScreen() {
   const isSitter = role === "sitter" || role === "babysitter";
   const address = u0?.address || {};
 
+  // Base identity
   const [name, setName] = useState(v(u0?.name || u0?.fullName, ""));
   const [email, setEmail] = useState(v(u0?.email, ""));
   const [phone, setPhone] = useState(v(u0?.phone, ""));
 
+  // Address + sitter
   const [city, setCity] = useState(v(address?.city, ""));
   const [street, setStreet] = useState(v(address?.street, ""));
   const [workRadiusKm, setWorkRadiusKm] = useState(
@@ -123,7 +66,13 @@ export default function EditProfileScreen() {
 
   // Sitter fields
   const [hourlyRate, setHourlyRate] = useState(v(u0?.hourlyRate ?? u0?.rate ?? "", ""));
-  const [experienceYears, setExperienceYears] = useState(v(u0?.experienceYears ?? "", ""));
+  // Experience is tricky; support both experienceYears and experience (string/number/array)
+  const initYears =
+    u0?.experienceYears ??
+    (Array.isArray(u0?.experience) ? undefined :
+      (typeof u0?.experience === "number" ? u0.experience :
+        (typeof u0?.experience === "string" ? Number(u0.experience.replace(/[^\d]/g, "")) : undefined)));
+  const [experienceYears, setExperienceYears] = useState(v(initYears ?? "", ""));
   const [certificationsCsv, setCertificationsCsv] = useState(toCsv(u0?.certifications || []));
 
   // Parent fields
@@ -132,12 +81,82 @@ export default function EditProfileScreen() {
   const [languagesCsv, setLanguagesCsv] = useState(toCsv(prefs?.languages || u0?.languages || []));
   const [preferredGender, setPreferredGender] = useState(v(prefs?.preferredGender || "", ""));
 
-  // Avatar state
+  // Avatar state (Cloudinary final URL once uploaded)
   const [avatarPreview, setAvatarPreview] = useState(u0?.photoUrl || u0?.avatarUrl || "");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [hydrating, setHydrating] = useState(false);
 
-  // --------------------------- avatar upload ----------------------------
+  // -------------------------- hydration from /me -------------------------
+
+  async function fetchMe() {
+    // Try service if available
+    if (typeof UserService.getMe === "function") {
+      const res = await UserService.getMe();
+      return res?.data?.user || res?.data || res;
+    }
+    if (api?.get) {
+      const { data } = await api.get("/api/users/me");
+      return data?.user || data;
+    }
+    const baseUrl =
+      config?.API_URL ||
+      config?.API_BASE_URL ||
+      ApiClient?.default?.defaults?.baseURL ||
+      "";
+    const resp = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/users/me`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    return data?.user || data;
+  }
+
+  // Hydrate form with server values on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setHydrating(true);
+      try {
+        const me = await fetchMe();
+        if (!mounted || !me) return;
+
+        // Merge into global auth state
+        if (typeof setUser === "function") setUser({ ...(u0 || {}), ...me });
+
+        // Re-init local form fields from server truth
+        const addr = me?.address || {};
+        const eraw = me?.experience;
+        const eYears =
+          me?.experienceYears ??
+          (Array.isArray(eraw) ? undefined :
+            (typeof eraw === "number" ? eraw :
+             (typeof eraw === "string" ? Number(eraw.replace(/[^\d]/g, "")) : undefined)));
+
+        setName(v(me?.name || me?.fullName, ""));
+        setEmail(v(me?.email, ""));
+        setPhone(v(me?.phone, ""));
+        setCity(v(addr?.city, ""));
+        setStreet(v(addr?.street, ""));
+        setWorkRadiusKm(v(me?.workRadiusKm ?? addr?.radiusKm ?? "", ""));
+        setHourlyRate(v(me?.hourlyRate ?? me?.rate ?? "", ""));
+        setExperienceYears(v(eYears ?? "", ""));
+        setCertificationsCsv(toCsv(me?.certifications || []));
+        setAvatarPreview(me?.photoUrl || me?.avatarUrl || "");
+        if (me?.preferences) {
+          setDietaryCsv(toCsv(me.preferences.dietary || []));
+          setLanguagesCsv(toCsv(me.preferences.languages || []));
+          setPreferredGender(v(me.preferences.preferredGender || "", ""));
+        }
+      } catch (e) {
+        console.log("[Profile hydrate] error:", e?.message || e);
+      } finally {
+        setHydrating(false);
+      }
+    })();
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --------------------------- avatar upload (Cloudinary) ----------------
 
   async function pickImageAndUpload() {
     try {
@@ -158,50 +177,34 @@ export default function EditProfileScreen() {
       const local = res.assets?.[0]?.uri;
       if (!local) return;
 
+      // Show local preview immediately
       setAvatarPreview(local);
-
-      const fname = fileNameFromUri(local, "avatar.jpg");
-      const type = inferMime(local);
-
-      const form = new FormData();
-      // IMPORTANT: server expects field name 'photo'
-      form.append("photo", { uri: local, name: fname, type });
-
       setUploading(true);
-      const resp = await tryUploadAvatar(form);
-      const finalUrl = resolveUploadedUrl(resp, ApiClient, config);
-      if (!finalUrl) throw new Error("Could not resolve uploaded photo URL");
 
+      // 1) Upload to Cloudinary (unsigned preset)
+      const secureUrl = await UserService.uploadAvatarToCloudinary(local);
+
+      // 2) Persist in backend profile (store Cloudinary URL)
+      await tryUpdateProfile({ photoUrl: secureUrl, avatarUrl: secureUrl });
+
+      // 3) Reflect in UI/state
       if (typeof setUser === "function") {
-        setUser({ ...u0, photoUrl: finalUrl, avatarUrl: finalUrl });
+        setUser({ ...u0, photoUrl: secureUrl, avatarUrl: secureUrl });
       }
-      setAvatarPreview(finalUrl);
+      setAvatarPreview(secureUrl);
       Alert.alert("Updated", "Your profile picture has been updated.");
     } catch (err) {
-      console.error(err);
-      Alert.alert("Upload failed", "Unable to upload your photo. Please try again.");
+       console.error('[Upload avatar] error:', err?.response?.data || err?.message || err);
+       const serverMsg =
+         err?.response?.data?.message ||
+         err?.response?.data?.error ||
+         err?.message ||
+         'Upload failed';
+       Alert.alert("Upload failed", String(serverMsg));
       setAvatarPreview(u0?.photoUrl || u0?.avatarUrl || "");
     } finally {
       setUploading(false);
     }
-  }
-
-  async function tryUploadAvatar(form) {
-    // 1) Service canonique (préféré)
-    if (typeof UserService.uploadPhoto === "function") {
-      return await UserService.uploadPhoto(form);
-    }
-    // 2) Fallback axios direct
-    if (api?.post) {
-      const cfg = { headers: { "Content-Type": "multipart/form-data" } };
-      return await api.post("/api/users/me/photo", form, cfg);
-    }
-    // 3) Fallback fetch
-    const base = getBaseUrl(ApiClient, config);
-    const url = joinUrl(base, "/api/users/me/photo");
-    const resp = await fetch(url, { method: "POST", body: form });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    return await resp.json();
   }
 
   // ---------------------------- profile save ----------------------------
@@ -215,15 +218,23 @@ export default function EditProfileScreen() {
     };
 
     if (avatarPreview) {
+      // Keep both aliases for backward compatibility with various readers in the app
       base.photoUrl = avatarPreview;
       base.avatarUrl = avatarPreview;
     }
 
     if (isSitter) {
-      // Do not send role; just sitter-specific fields
-      base.workRadiusKm    = toNum(workRadiusKm);
-      base.hourlyRate      = toNum(hourlyRate);
-      base.experienceYears = toNum(experienceYears);
+      const radiusNum = toNum(workRadiusKm);
+      const rateNum = toNum(hourlyRate);
+      const expNum = toNum(experienceYears);
+
+      base.workRadiusKm    = radiusNum;
+      base.hourlyRate      = rateNum;
+
+      // Send both experienceYears and a normalized "experience" (back-compat with backend)
+      base.experienceYears = expNum;
+      base.experience      = pickPrefer(expNum, undefined);
+
       base.certifications  = fromCsv(certificationsCsv);
     } else {
       base.role = "parent";
@@ -240,7 +251,6 @@ export default function EditProfileScreen() {
     if (typeof UserService.updateProfile === "function") {
       return await UserService.updateProfile(payload);
     }
-    // axios fallback with explicit /api
     if (api?.put) {
       try {
         return await api.put("/api/users/me", payload);
@@ -250,9 +260,12 @@ export default function EditProfileScreen() {
         throw e;
       }
     }
-    // fetch fallback
-    const base = getBaseUrl(ApiClient, config);
-    const resp = await fetch(joinUrl(base, "/api/users/me"), {
+    const baseUrl =
+      config?.API_URL ||
+      config?.API_BASE_URL ||
+      ApiClient?.default?.defaults?.baseURL ||
+      "";
+    const resp = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/users/me`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -280,8 +293,13 @@ export default function EditProfileScreen() {
       Alert.alert("Saved", "Your profile has been updated.");
       navigation.goBack();
     } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to save your profile. Please try again.");
+       console.error('[Save profile] error:', err?.response?.data || err?.message || err);
+       const serverMsg =
+         err?.response?.data?.message ||
+         err?.response?.data?.error ||
+         err?.message ||
+         'Failed to save your profile';
+       Alert.alert("Error", String(serverMsg));
     } finally {
       setSubmitting(false);
     }
@@ -309,8 +327,8 @@ export default function EditProfileScreen() {
               <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
                 <Pressable
                   onPress={pickImageAndUpload}
-                  style={[styles.smallBtn, uploading && { opacity: 0.7 }]}
-                  disabled={uploading}
+                  style={[styles.smallBtn, (uploading || hydrating) && { opacity: 0.7 }]}
+                  disabled={uploading || hydrating}
                 >
                   {uploading ? (
                     <ActivityIndicator size="small" color={colors.primary} />
@@ -322,7 +340,7 @@ export default function EditProfileScreen() {
                   <Pressable
                     onPress={() => setAvatarPreview("")}
                     style={styles.smallBtnOutline}
-                    disabled={uploading}
+                    disabled={uploading || hydrating}
                   >
                     <Text style={styles.smallBtnOutlineTxt}>Remove</Text>
                   </Pressable>
@@ -381,6 +399,7 @@ export default function EditProfileScreen() {
               value={String(experienceYears)}
               onChangeText={setExperienceYears}
               keyboardType="numeric"
+              placeholder="e.g. 2"
             />
             <LabeledInput
               label="Certifications (comma-separated)"
@@ -404,20 +423,14 @@ export default function EditProfileScreen() {
               onChangeText={setLanguagesCsv}
               placeholder="English, Hebrew, French"
             />
-            <LabeledInput
-              label="Preferred sitter"
-              value={preferredGender}
-              onChangeText={setPreferredGender}
-              placeholder="Female / Male / Any"
-            />
           </View>
         )}
 
         {/* ACTIONS */}
         <Pressable
           onPress={onSave}
-          style={[styles.primaryCta, (submitting || uploading) && { opacity: 0.7 }]}
-          disabled={submitting || uploading}
+          style={[styles.primaryCta, (submitting || uploading || hydrating) && { opacity: 0.7 }]}
+          disabled={submitting || uploading || hydrating}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -429,7 +442,7 @@ export default function EditProfileScreen() {
         <Pressable
           onPress={() => navigation.goBack()}
           style={styles.outlineCta}
-          disabled={submitting}
+          disabled={submitting || hydrating}
         >
           <Text style={styles.outlineCtaTxt}>Cancel</Text>
         </Pressable>
