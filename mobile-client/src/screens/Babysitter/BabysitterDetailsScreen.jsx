@@ -170,8 +170,9 @@ export default function BabysitterDetailsScreen() {
               }}
             >
               <Text style={{ color: colors.textDark, fontWeight: "700" }}>
-                See {ui.ratingCount || 0} review{(ui.ratingCount || 0) === 1 ? "" : "s"}
+                See reviews{Number(ui.ratingCount) ? ` (${ui.ratingCount})` : ""}
               </Text>
+
             </Pressable>
             {/* END ADDED */}
           </View>

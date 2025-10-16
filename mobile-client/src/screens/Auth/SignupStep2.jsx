@@ -14,7 +14,7 @@ import {
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { GOOGLE_PLACES_API_KEY } from '../../config';
 
-// --- Optional theme import with safe fallback (match your file name: theme/color.js) ---
+
 let importedDefault, importedNS;
 try {
   importedDefault = require('../../theme/color').default;

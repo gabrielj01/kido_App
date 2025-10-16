@@ -56,7 +56,7 @@ function normalizePatch(patch) {
   return out;
 }
 
-/** Allow only your own Cloudinary URLs when saving avatars */
+
 function isAllowedCloudinaryUrl(urlStr) {
   try {
     const u = new URL(String(urlStr).trim());

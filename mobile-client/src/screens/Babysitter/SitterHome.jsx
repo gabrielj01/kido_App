@@ -1,10 +1,3 @@
-// src/screens/Babysitter/SitterHome.jsx
-// Real sitter dashboard pulling data from the backend.
-// - Profile: from auth + /users/me (refreshed)
-// - Reviews: /babysitters/:id/reviews -> compute avg & count locally
-// - Upcoming: getUpcomingBookings() (already wired)
-// - Jobs / Response rate / Weekly earnings: from /bookings?role=sitter (client-side aggregates)
-
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   View,
@@ -86,7 +79,7 @@ export default function SitterHome({ navigation }) {
     }
   }, []);
 
-  // 2) Upcoming (already wired in your codebase)
+  // 2) Upcoming bookings (confirmed only)
   const loadUpcoming = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
@@ -332,7 +325,7 @@ export default function SitterHome({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.earningsTitle}>This week</Text>
             <Text style={styles.earningsValue}>₪{stats.weekEarnings.toFixed(0)}</Text>
-            {/* You can compute/display dynamic week range if you want */}
+
           </View>
           <Pressable style={styles.primaryBtn} onPress={() => tryNavigate("Payouts")}>
             <Ionicons name="arrow-forward" size={18} color="#fff" />

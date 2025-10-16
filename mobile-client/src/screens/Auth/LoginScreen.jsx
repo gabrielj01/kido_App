@@ -23,9 +23,9 @@ export default function LoginScreen({ navigation }) {
 
   const THEME = useMemo(
     () => ({
-      primary: '#FF7A59', // warm playful orange
+      primary: '#FF7A59',   // warm playful orange
       secondary: '#4ECDC4', // teal accent
-      bg: '#F7F9FC', // soft background
+      bg: '#F7F9FC',        // soft background
       card: '#FFFFFF',
       text: '#1F2D3D',
       textMuted: '#6B7A90',
@@ -36,6 +36,7 @@ export default function LoginScreen({ navigation }) {
   );
 
   const handleLogin = async () => {
+    // Basic client-side validation for tests and UX
     setError('');
     if (!email.trim() || !password) {
       setError('Please fill in email and password.');
@@ -53,8 +54,13 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: THEME.bg }]}>
-      {/* Decorative colorful header */}
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: THEME.bg }]}
+      // Expose the whole screen for smoke tests
+      testID="login-screen"
+      accessibilityLabel="Login screen"
+    >
+      {/* Decorative colorful header (ignored by tests) */}
       <View style={styles.headerWrap} pointerEvents="none">
         <View style={[styles.blob, { backgroundColor: THEME.primary, top: -60, left: -40, opacity: 0.2 }]} />
         <View style={[styles.blob, { backgroundColor: THEME.secondary, top: -20, right: -50, width: 220, height: 220, opacity: 0.25 }]} />
@@ -78,18 +84,25 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.field}>
             <Text style={[styles.label, { color: THEME.textMuted }]}>Email</Text>
             <TextInput
+              // === Test hook for Cypress (RN Web -> data-testid on DOM) ===
+              testID="login-email"
+              // === Fallback selector for Testing Library ===
+              placeholder="you@example.com"
+              placeholderTextColor="#A8B3C2"
+              // === Usability ===
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              placeholder="you@example.com"
-              placeholderTextColor="#A8B3C2"
+              returnKeyType="next"
+              // === Styles ===
               style={[
                 styles.input,
                 { borderColor: THEME.border, color: THEME.text, backgroundColor: '#FFF' },
               ]}
-              returnKeyType="next"
+              // Accessibility (nice-to-have)
+              accessibilityLabel="Email input"
             />
           </View>
 
@@ -103,20 +116,28 @@ export default function LoginScreen({ navigation }) {
               ]}
             >
               <TextInput
+                // === Test hook ===
+                testID="login-password"
+                placeholder="••••••••"
+                placeholderTextColor="#A8B3C2"
+                // === Usability ===
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={secure}
-                placeholder="••••••••"
-                placeholderTextColor="#A8B3C2"
-                style={[styles.inputFlex, { color: THEME.text }]}
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
+                // === Styles ===
+                style={[styles.inputFlex, { color: THEME.text }]}
+                // Accessibility
+                accessibilityLabel="Password input"
               />
               <Pressable
                 onPress={() => setSecure((s) => !s)}
                 style={styles.eyeBtn}
                 accessibilityRole="button"
                 accessibilityLabel={secure ? 'Show password' : 'Hide password'}
+                // === Test hook for toggling visibility ===
+                testID="toggle-password-visibility"
               >
                 <Text style={{ color: THEME.textMuted }}>{secure ? 'Show' : 'Hide'}</Text>
               </Pressable>
@@ -125,7 +146,14 @@ export default function LoginScreen({ navigation }) {
 
           {/* Error */}
           {!!error && (
-            <Text style={[styles.error, { color: THEME.danger }]}>{error}</Text>
+            <Text
+              style={[styles.error, { color: THEME.danger }]}
+              // === Test hook to assert validation/server errors ===
+              testID="login-error"
+              accessibilityLiveRegion="polite"
+            >
+              {error}
+            </Text>
           )}
 
           {/* Login button */}
@@ -139,6 +167,10 @@ export default function LoginScreen({ navigation }) {
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="Log in"
+            // === Test hook for submission ===
+            testID="login-submit"
           >
             {submitting ? (
               <ActivityIndicator color="#FFF" />
@@ -155,7 +187,14 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {/* Sign up link */}
-          <Pressable onPress={() => navigation.navigate('SignupStep1')} style={styles.linkBtn}>
+          <Pressable
+            onPress={() => navigation.navigate('SignupStep1')}
+            style={styles.linkBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go to signup"
+            // === Test hook to navigate to signup ===
+            testID="link-signup"
+          >
             <Text style={[styles.linkText, { color: THEME.secondary }]}>
               Don&apos;t have an account? Sign up
             </Text>

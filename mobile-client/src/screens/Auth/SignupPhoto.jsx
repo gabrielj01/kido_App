@@ -16,7 +16,6 @@ import * as ImagePicker from "expo-image-picker";
 import { uploadAvatarToCloudinary } from "../../services/userService";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-// --- Optional theme import with safe fallback (match your file name: theme/color.js) ---
 let importedDefault, importedNS;
 try {
   importedDefault = require("../../theme/color").default;
@@ -111,7 +110,6 @@ export default function SignupPhoto({ navigation, route }) {
     navigation.navigate("SignupStep2", { ...prev, photoUrl: uploadedUrl });
   };
 
-  /** Allow skipping the photo (still consistent with your MVP) */
   const onSkip = () => {
     navigation.navigate("SignupStep2", { ...prev });
   };

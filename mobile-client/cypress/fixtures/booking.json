@@ -1,0 +1,8 @@
+{
+  "_id": "b_1",
+  "sitterId": "s1",
+  "parentId": "parent_1",
+  "date": "2030-01-01",
+  "time": "18:30",
+  "status": "CONFIRMED"
+}

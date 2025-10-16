@@ -1,4 +1,3 @@
-// mobile-client/src/navigation/AppNavigator.jsx
 import React from 'react';
 import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -49,22 +48,14 @@ const RootStack = createNativeStackNavigator();
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/**
- * Auth flow header:
- * - Transparent header so only the logo image is visible (no full-width bar).
- * - Title container width set to 'auto' to avoid stretching.
- * - Left-aligned by default for a subtle presence (change to 'center' if you prefer).
- */
 const authHeaderOptions = {
   headerShown: true,
   headerTransparent: true,
-  headerTitle: () => <AppHeaderLogo />,          // image-only component
-  headerTitleAlign: 'left',                      // or 'center'
-  headerTitleContainerStyle: { width: 'auto' },  // prevent full-width stretching
+  headerTitle: () => <AppHeaderLogo />,
+  headerTitleAlign: 'center',
+  headerTitleContainerStyle: { width: 'auto' },
   headerStyle: { backgroundColor: 'transparent' },
   headerShadowVisible: false,
-  // Keep default back button; remove if you want a cleaner look:
-  // headerBackTitleVisible: false,
 };
 
 /** Profile stack */

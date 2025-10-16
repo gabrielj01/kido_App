@@ -118,7 +118,7 @@ export const signup = async (req, res, next) => {
       name,
       email: emailNorm,
       username: usernameNorm,
-      password, // MVP: plaintext as per your current rule
+      password,
       role,
       phone: phoneE164,
       address,

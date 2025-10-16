@@ -1,4 +1,3 @@
-// src/screens/Babysitter/PayoutsScreen.jsx
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   View,
@@ -47,7 +46,7 @@ function SectionTitle({ children }) {
   );
 }
 
-function Stat({ label, value, sub }) {
+function Stat({ label, value, sub, testId }) {
   return (
     <View
       style={{
@@ -84,6 +83,7 @@ function Row({ item }) {
 
   return (
     <View
+      testID={testID} 
       style={{
         backgroundColor: colors.card,
         borderWidth: 1,
@@ -263,6 +263,7 @@ export default function PayoutsScreen() {
           const active = period === opt.key;
           return (
             <Pressable
+              testId={[`chip-${opt.key}`]}
               key={opt.key}
               onPress={() => selectPeriod(opt.key)}
               style={{
@@ -297,7 +298,7 @@ export default function PayoutsScreen() {
 
         {/* KPIs */}
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 8 }}>
-          <Stat label="Earnings" value={fmtILS(Number(agg.totalEarnings || 0))} />
+          <Stat testID = "payouts-total" label="Earnings" value={fmtILS(Number(agg.totalEarnings || 0))} />
           <Stat label="Jobs" value={String(agg.jobs || 0)} />
         </View>
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>

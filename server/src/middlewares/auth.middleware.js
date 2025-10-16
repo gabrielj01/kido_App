@@ -4,11 +4,6 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "devsecret";
 
-/**
- * Default export: JWT auth middleware
- * - Expects header: Authorization: Bearer <token>
- * - Sets req.user = { id, role, ...payload }
- */
 export default function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const [scheme, token] = authHeader.split(" ");

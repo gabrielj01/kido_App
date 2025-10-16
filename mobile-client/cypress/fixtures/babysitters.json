@@ -1,0 +1,4 @@
+[
+  { "_id": "s1", "name": "Maya Cohen", "hourlyRate": 60, "rating": 4.6, "city": "Tel Aviv" },
+  { "_id": "s2", "name": "Noa Levi", "hourlyRate": 55, "rating": 4.8, "city": "Ramat Gan" }
+]

@@ -1,0 +1,4 @@
+[
+  { "_id": "r1", "sitterId": "s1", "rating": 5, "text": "Great!" },
+  { "_id": "r2", "sitterId": "s1", "rating": 4, "text": "Very kind" }
+]

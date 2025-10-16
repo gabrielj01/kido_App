@@ -35,10 +35,9 @@ function guessMime(uri) {
   return "image/jpeg";
 }
 
-/**
- * Upload a local image (file://) directly to Cloudinary using the unsigned preset.
- * Returns the CDN secure_url that you can store in your user profile.
- */
+
+//Upload a local image (file://) directly to Cloudinary using the unsigned preset.
+
 export async function uploadAvatarToCloudinary(localUri) {
   const file = {
     uri: localUri,
@@ -59,10 +58,10 @@ export async function uploadAvatarToCloudinary(localUri) {
     throw new Error(`Cloudinary upload failed: ${text}`);
   }
   const json = await res.json();
-  return json.secure_url; // store this in your profile's photoUrl
+  return json.secure_url;
 }
 
-/** Update current user's profile on your backend */
+/** Update current user's profile on backend */
 export async function updateProfile(payload) {
   // Keep the same signature as before (axios response) to avoid breaking callers
   return api.put("/api/users/me", payload);

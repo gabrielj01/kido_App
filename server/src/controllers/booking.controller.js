@@ -1,4 +1,3 @@
-// server/src/controllers/booking.controller.js
 import { Booking } from "../models/Booking.js";
 import { User } from "../models/User.js";
 import mongoose from "mongoose";

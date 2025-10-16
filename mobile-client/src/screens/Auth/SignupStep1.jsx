@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { checkEmailAvailability, checkUsernameAvailability } from '../../services/userService';
 
-// --- Optional theme import with safe fallback (match your file name: theme/color.js) ---
 let importedDefault, importedNS;
 try {
   importedDefault = require('../../theme/color').default;

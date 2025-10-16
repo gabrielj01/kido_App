@@ -85,11 +85,18 @@ export default function BabysitterReviewsScreen() {
           rating={Number(item.rating) || 0}
           count={Number(item.rating) || undefined}
         />
-      {!!item.comment && (
+      {(() => {
+     const commentTxt =
+      item?.comment ??
+      item?.text ??
+      item?.review ??
+      "";
+      return commentTxt ? (
         <Text style={{ marginTop: 8, color: colors.textDark, lineHeight: 20 }}>
-          {item.comment}
+         {commentTxt}
         </Text>
-      )}
+     ) : null;
+  })()}
     </View>
   );
 

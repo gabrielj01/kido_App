@@ -1,0 +1,26 @@
+[
+  {
+    "_id": "b1",
+    "status": "completed",
+    "parentName": "Alice",
+    "date": "2025-10-08T18:30:00.000Z",
+    "hours": 3,
+    "rate": 60
+  },
+  {
+    "_id": "b2",
+    "status": "completed",
+    "parentName": "David",
+    "date": "2025-10-02T17:00:00.000Z",
+    "hours": 2.5,
+    "rate": 55
+  },
+  {
+    "_id": "b3",
+    "status": "completed",
+    "parentName": "Ruth",
+    "date": "2025-09-25T19:00:00.000Z",
+    "hours": 4,
+    "rate": 50
+  }
+]
