@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Share,
-  Pressable, // same approach as SitterRequests tabs
+  Pressable,
 } from "react-native";
 import Screen from "../../components/Screen";
 import { colors } from "../../theme/color";
@@ -83,7 +83,6 @@ function Row({ item }) {
 
   return (
     <View
-      testID={testID} 
       style={{
         backgroundColor: colors.card,
         borderWidth: 1,
